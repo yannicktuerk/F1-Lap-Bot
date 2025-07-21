@@ -72,6 +72,7 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 | `/lap info <strecke>` | Detaillierte Strecken-Informationen |
 | `/lap challenge` | Zufällige Strecken-Challenge |
 | `/lap delete <strecke>` | Eigene Bestzeit löschen |
+| `/lap help` | Vollständige Command-Übersicht mit Quick Start Guide |
 
 #### 📊 Analytics Commands
 | Command | Beschreibung |

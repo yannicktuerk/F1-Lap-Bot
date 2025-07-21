@@ -1123,6 +1123,119 @@ class LapCommands(commands.Cog):
         except Exception as e:
             print(f"❌ Error in rivalries command: {e}")
             await interaction.followup.send("❌ Error generating rivalries.", ephemeral=True)
+    
+    @app_commands.command(name="help", description="📚 Show all available F1 Lap Bot commands and features")
+    async def show_help(self, interaction: discord.Interaction):
+        """Show comprehensive help with all available commands and features."""
+        await interaction.response.defer()
+        
+        try:
+            embed = discord.Embed(
+                title="🏁 F1 Lap Bot - Command Overview",
+                description="**🚀 Your ultimate F1 lap time tracking companion!**\n\nTrack lap times, compete with friends, and analyze performance across all F1 circuits.",
+                color=discord.Color.from_rgb(229, 43, 80)  # F1 Red
+            )
+            
+            # Basic Commands
+            basic_commands = (
+                "`/lap submit <time> <track>` - Submit your lap time\n"
+                "`/lap leaderboard <track>` - Track-specific leaderboard\n"
+                "`/lap global` - Global leaderboard (all tracks)\n"
+                "`/lap stats` - Your personal statistics\n"
+                "`/lap tracks` - List all available tracks\n"
+                "`/lap info <track>` - Detailed track information\n"
+                "`/lap challenge` - Get a random track challenge\n"
+                "`/lap delete <track>` - Delete your personal best"
+            )
+            
+            embed.add_field(
+                name="🏁 Basic Commands",
+                value=basic_commands,
+                inline=False
+            )
+            
+            # Analytics Commands
+            analytics_commands = (
+                "`/lap analytics` - 📊 Advanced performance dashboard\n"
+                "`/lap heatmap` - 🗺️ Track popularity & performance heatmap\n"
+                "`/lap rivalries` - ⚔️ Epic driver rivalries & head-to-head stats"
+            )
+            
+            embed.add_field(
+                name="📊 Analytics Commands",
+                value=analytics_commands,
+                inline=False
+            )
+            
+            # Time Format Examples
+            time_formats = (
+                "• `1:23.456` - 1 minute, 23.456 seconds\n"
+                "• `83.456` - 83.456 seconds\n\n"
+                "**⚡ Valid Range:** 30 seconds - 5 minutes"
+            )
+            
+            embed.add_field(
+                name="⏱️ Time Formats",
+                value=time_formats,
+                inline=True
+            )
+            
+            # Track Examples
+            track_examples = (
+                "• `monaco` - Monaco Grand Prix\n"
+                "• `silverstone` - British GP\n"
+                "• `spa` - Belgian GP\n"
+                "• `houston` or `usa` - US GP\n"
+                "• `baku` or `azerbaijan` - Azerbaijan GP\n\n"
+                "**💡 Pro-Tip:** Use city names too!"
+            )
+            
+            embed.add_field(
+                name="🏎️ Track Examples",
+                value=track_examples,
+                inline=True
+            )
+            
+            # Analytics Features
+            analytics_features = (
+                "🏆 **Hall of Fame** - Most dominant drivers\n"
+                "🚀 **Speed Demons** - Fastest overall times\n"
+                "💀 **Track Difficulty** - Consistency analysis\n"
+                "🎯 **Consistency Kings** - Most consistent drivers\n"
+                "🔥 **Track Heatmap** - Popularity visualization\n"
+                "⚔️ **Driver Rivalries** - Head-to-head battles"
+            )
+            
+            embed.add_field(
+                name="🔥 Analytics Features",
+                value=analytics_features,
+                inline=False
+            )
+            
+            # Quick Start
+            quick_start = (
+                "**1.** `/lap submit 1:23.456 monaco` - Submit your first time\n"
+                "**2.** `/lap leaderboard monaco` - See the competition\n"
+                "**3.** `/lap global` - Check all track records\n"
+                "**4.** `/lap analytics` - Dive into advanced stats!\n\n"
+                "**🎯 Ready to race?** Start with any track and climb the leaderboards!"
+            )
+            
+            embed.add_field(
+                name="🚀 Quick Start Guide",
+                value=quick_start,
+                inline=False
+            )
+            
+            embed.set_footer(
+                text="🏁 F1 Lap Bot v1.2.0 • Built for speed and analytics • Ready to race?"
+            )
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in help command: {e}")
+            await interaction.followup.send("❌ Error displaying help.", ephemeral=True)
 
 
 # Create command group for lap commands
@@ -1143,6 +1256,10 @@ async def setup(bot):
         lap_group.add_command(cog.delete_lap_time)
         lap_group.add_command(cog.list_tracks)
         lap_group.add_command(cog.show_global_leaderboard)
+        lap_group.add_command(cog.show_analytics)
+        lap_group.add_command(cog.show_heatmap)
+        lap_group.add_command(cog.show_rivalries)
+        lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
         
         bot.tree.add_command(lap_group)
