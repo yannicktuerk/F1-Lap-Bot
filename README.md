@@ -243,10 +243,6 @@ python -m pytest tests/ --cov=src/
 4. Branch pushen (`git push origin feature/amazing-feature`)
 5. Pull Request öffnen
 
-## 📄 License
-
-Dieses Projekt ist unter der MIT License lizenziert - siehe [LICENSE](LICENSE) Datei für Details.
-
 ## 🏆 Credits
 
 Entwickelt mit Clean Architecture Prinzipien für maximale Wartbarkeit und Testbarkeit.
