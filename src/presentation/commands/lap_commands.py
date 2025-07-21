@@ -1,5 +1,6 @@
 """Discord slash commands for lap time management."""
 import discord
+import random
 from discord.ext import commands
 from discord import app_commands
 from typing import Optional
@@ -11,6 +12,15 @@ class LapCommands(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+    
+    def _format_time_seconds(self, total_seconds: float) -> str:
+        """Format seconds to MM:SS.mmm or SS.mmm format."""
+        if total_seconds >= 60:
+            minutes = int(total_seconds // 60)
+            seconds = total_seconds % 60
+            return f"{minutes}:{seconds:06.3f}"
+        else:
+            return f"{total_seconds:.3f}s"
     
     @app_commands.command(name="submit", description="Submit your lap time")
     @app_commands.describe(
@@ -108,7 +118,7 @@ class LapCommands(commands.Cog):
             if "time format" in str(e).lower():
                 error_embed.add_field(
                     name="Valid Time Formats",
-                    value="• `1:23.456` (1 minute, 23.456 seconds)\\n• `83.456` (83.456 seconds)",
+                    value="• `1:23.456` (1 minute, 23.456 seconds)\n• `83.456` (83.456 seconds)",
                     inline=False
                 )
             
@@ -168,7 +178,7 @@ class LapCommands(commands.Cog):
                 
                 for i, lap_time in enumerate(top_times):
                     position_icon = medals[i] if i < 3 else f"`{i+1}.`"
-                    leaderboard_text += f"{position_icon} **{lap_time.username}** - `{lap_time.time_format}`\\n"
+                    leaderboard_text += f"{position_icon} **{lap_time.username}** - `{lap_time.time_format}`\n"
                 
                 embed.add_field(
                     name="🏆 Leaderboard",
@@ -181,9 +191,9 @@ class LapCommands(commands.Cog):
             if stats['total_laps'] > 0:
                 embed.add_field(
                     name="📊 Track Stats",
-                    value=f"Total laps: {stats['total_laps']}\\n"
-                          f"Drivers: {stats['unique_drivers']}\\n"
-                          f"Average: `{stats['average_time_seconds']:.3f}s`",
+                    value=f"Total laps: {stats['total_laps']}\n"
+                          f"Drivers: {stats['unique_drivers']}\n"
+                          f"Average: `{self._format_time_seconds(stats['average_time_seconds'])}`",
                     inline=True
                 )
             
@@ -200,7 +210,7 @@ class LapCommands(commands.Cog):
             tracks_text = ", ".join(valid_tracks)
             error_embed.add_field(
                 name="Valid Track Names",
-                value=f"`{tracks_text}`\\n...and more",
+                value=f"`{tracks_text}`\n...and more",
                 inline=False
             )
             
@@ -235,8 +245,8 @@ class LapCommands(commands.Cog):
             # General stats
             embed.add_field(
                 name="🏁 General",
-                value=f"Total laps: {stats['total_laps']}\\n"
-                      f"Personal bests: {stats['personal_bests']}\\n"
+                value=f"Total laps: {stats['total_laps']}\n"
+                      f"Personal bests: {stats['personal_bests']}\n"
                       f"Track records: {stats['overall_bests']}",
                 inline=True
             )
@@ -252,7 +262,7 @@ class LapCommands(commands.Cog):
                 best_times_text = ""
                 for track_key, lap in list(best_times_by_track.items())[:5]:
                     pb_icon = "🏆" if lap.is_overall_best else "🎯"
-                    best_times_text += f"{pb_icon} **{lap.track_name.short_name}** - `{lap.time_format}`\\n"
+                    best_times_text += f"{pb_icon} **{lap.track_name.short_name}** - `{lap.time_format}`\n"
                 
                 embed.add_field(
                     name="🎯 Personal Bests",
@@ -295,7 +305,7 @@ class LapCommands(commands.Cog):
                 
                 for i, lap_time in enumerate(top_times):
                     medal = medals[i] if i < len(medals) else f"`{i+1}.`"
-                    leaderboard_text += f"{medal} **{lap_time.username}** - `{lap_time.time_format}`\\n"
+                    leaderboard_text += f"{medal} **{lap_time.username}** - `{lap_time.time_format}`\n"
                 
                 embed.add_field(
                     name="🏆 Current Leaders",
@@ -322,6 +332,172 @@ class LapCommands(commands.Cog):
         except Exception as e:
             print(f"❌ Error in challenge command: {e}")
             await interaction.followup.send("❌ Error generating challenge.", ephemeral=True)
+    
+    @app_commands.command(name="info", description="Show detailed information about a specific track")
+    @app_commands.describe(track="Track name to get information about")
+    async def track_info(self, interaction: discord.Interaction, track: str):
+        """Show detailed information about a specific F1 track."""
+        await interaction.response.defer()
+        
+        try:
+            track_obj = TrackName(track)
+            
+            # Get track statistics
+            stats = await self.bot.lap_time_repository.get_track_statistics(track_obj)
+            
+            embed = discord.Embed(
+                title=f"🏁 {track_obj.display_name}",
+                description=f"🌍 **{track_obj.country}** • Track Information & Statistics",
+                color=discord.Color.purple()
+            )
+            
+            # Add the track layout as main image
+            embed.set_image(url=track_obj.image_url)
+            # Add country flag as thumbnail
+            embed.set_thumbnail(url=track_obj.flag_url)
+            
+            # Track details
+            embed.add_field(
+                name="🏎️ Track Details",
+                value=f"**Official Name:** {track_obj.display_name}\n"
+                      f"**Location:** {track_obj.country}",
+                inline=True
+            )
+            
+            
+            # Statistics (if available)
+            if stats and stats.get('total_laps', 0) > 0:
+                embed.add_field(
+                    name="📊 Track Statistics",
+                    value=f"Total Laps: **{stats['total_laps']}**\n"
+                          f"Drivers: **{stats['unique_drivers']}**\n"
+                          f"Average Time: `{self._format_time_seconds(stats['average_time_seconds'])}`",
+                    inline=True
+                )
+                
+                # Get current record holder
+                best_time = await self.bot.lap_time_repository.find_best_by_track(track_obj)
+                if best_time:
+                    embed.add_field(
+                        name="🏆 Current Record",
+                        value=f"🎆 **{best_time.username}**\n"
+                              f"⏱️ `{best_time.time_format}`\n"
+                              f"📅 {best_time.created_at.strftime('%Y-%m-%d')}",
+                        inline=True
+                    )
+            else:
+                embed.add_field(
+                    name="🎆 No Times Yet!",
+                    value="Be the first to set a lap time on this track!\n"
+                          "Your time will become the first track record! 🏆",
+                    inline=False
+                )
+            
+            
+            
+            await interaction.followup.send(embed=embed)
+            
+        except ValueError as e:
+            error_embed = discord.Embed(
+                title="❌ Invalid Track",
+                description=str(e),
+                color=discord.Color.red()
+            )
+            
+            # Show some example tracks
+            examples = ["monaco", "silverstone", "spa", "monza", "cota"]
+            error_embed.add_field(
+                name="Example Tracks",
+                value=f"`{', '.join(examples)}`\n\nUse `/lap tracks` to see all available tracks.",
+                inline=False
+            )
+            
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            
+        except Exception as e:
+            print(f"❌ Error in track info command: {e}")
+            await interaction.followup.send("❌ Error retrieving track information.", ephemeral=True)
+    
+    @app_commands.command(name="delete", description="Delete your personal best time for a track")
+    @app_commands.describe(track="Track name to delete your best time from")
+    async def delete_lap_time(self, interaction: discord.Interaction, track: str):
+        """Delete user's personal best time for a specific track."""
+        await interaction.response.defer()
+        
+        try:
+            track_obj = TrackName(track)
+            user_id = str(interaction.user.id)
+            
+            # Get user's best time for this track
+            user_best = await self.bot.lap_time_repository.find_user_best_by_track(user_id, track_obj)
+            
+            if not user_best:
+                embed = discord.Embed(
+                    title="❌ No Time Found",
+                    description=f"You don't have any recorded times for **{track_obj.display_name}**.",
+                    color=discord.Color.orange()
+                )
+                embed.set_thumbnail(url=track_obj.flag_url)
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Delete the time from repository
+            success = await self.bot.lap_time_repository.delete_lap_time(user_best.lap_id)
+            
+            if success:
+                embed = discord.Embed(
+                    title="✅ Time Deleted Successfully",
+                    description=f"Your personal best time has been removed from **{track_obj.display_name}**.",
+                    color=discord.Color.green()
+                )
+                
+                embed.add_field(
+                    name="Deleted Time",
+                    value=f"`{user_best.time_format}`",
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="Track",
+                    value=f"🌍 **{track_obj.display_name}**\n({track_obj.country})",
+                    inline=True
+                )
+                
+                embed.set_image(url=track_obj.image_url)
+                embed.set_thumbnail(url=track_obj.flag_url)
+                
+                await interaction.followup.send(embed=embed)
+                
+                # Update leaderboard after deletion
+                await self.bot.update_leaderboard(track)
+                
+            else:
+                embed = discord.Embed(
+                    title="❌ Delete Failed",
+                    description="Failed to delete your time. Please try again later.",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except ValueError as e:
+            error_embed = discord.Embed(
+                title="❌ Invalid Track",
+                description=str(e),
+                color=discord.Color.red()
+            )
+            
+            examples = ["monaco", "silverstone", "spa", "monza", "cota"]
+            error_embed.add_field(
+                name="Example Tracks",
+                value=f"`{', '.join(examples)}`\n\nUse `/lap tracks` to see all available tracks.",
+                inline=False
+            )
+            
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            
+        except Exception as e:
+            print(f"❌ Error in delete command: {e}")
+            await interaction.followup.send("❌ Error deleting time.", ephemeral=True)
     
     @app_commands.command(name="tracks", description="List all available tracks")
     async def list_tracks(self, interaction: discord.Interaction):
@@ -356,7 +532,7 @@ class LapCommands(commands.Cog):
                 field_name = f"🏎️ Tracks {i//chunk_size + 1}" if i > 0 else "🏎️ F1 Tracks"
                 embed.add_field(
                     name=field_name,
-                    value="\\n".join(chunk),
+                    value="\n".join(chunk),
                     inline=True
                 )
             
@@ -367,6 +543,113 @@ class LapCommands(commands.Cog):
         except Exception as e:
             print(f"❌ Error in tracks command: {e}")
             await interaction.followup.send("❌ Error retrieving track list.", ephemeral=True)
+    
+    @app_commands.command(name="global", description="Show global leaderboard with all track records")
+    async def show_global_leaderboard(self, interaction: discord.Interaction):
+        """Show the global leaderboard with all track records."""
+        await interaction.response.defer()
+        
+        try:
+            from ...domain.value_objects.track_name import TrackName
+            
+            # Get all track keys
+            all_track_keys = list(TrackName.TRACK_DATA.keys())
+            
+            embed = discord.Embed(
+                title="🏆 Global F1 Leaderboard",
+                description="Track record holders across all circuits",
+                color=discord.Color.gold()
+            )
+            
+            # Split tracks into chunks for multiple fields (Discord has field limits)
+            chunk_size = 12
+            track_chunks = [all_track_keys[i:i + chunk_size] for i in range(0, len(all_track_keys), chunk_size)]
+            
+            # Color scheme for different users - smaller symbols for compact display
+            colors = ['⬤', '🟢', '🔵', '🟡', '🟠', '🟣', '🟤', '•', '●', '🔶']
+            color_names = ['RED', 'GRN', 'BLU', 'YLW', 'ORG', 'PUR', 'BRN', 'BLK', 'DOT', 'DMD']
+            user_colors = {}
+            user_times = {}  # To store best times for legend
+            
+            for chunk_index, track_chunk in enumerate(track_chunks):
+                leaderboard_text = ""
+                
+                for track_key in track_chunk:
+                    try:
+                        track = TrackName(track_key)
+                        best_time = await self.bot.lap_time_repository.find_best_by_track(track)
+                        
+                        if best_time:
+                            # Assign color if user doesn't have one
+                            if best_time.username not in user_colors:
+                                user_colors[best_time.username] = colors[len(user_colors) % len(colors)]
+                                user_times[best_time.username] = []
+                            
+                            user_color = user_colors[best_time.username]
+                            user_times[best_time.username].append((track.short_name, best_time.time_format))
+                            
+                            leaderboard_text += f"🏁 **{track.short_name}** - {user_color} `{best_time.time_format}`\n"
+                        else:
+                            leaderboard_text += f"🏁 **{track.short_name}** - `-`\n"
+                    except Exception as e:
+                        print(f"Error processing track {track_key}: {e}")
+                        continue
+                
+                if leaderboard_text:
+                    field_name = "🏆 Track Records" if chunk_index == 0 else f"🏆 Track Records ({chunk_index + 1})"
+                    embed.add_field(
+                        name=field_name,
+                        value=leaderboard_text,
+                        inline=True
+                    )
+            
+            # Add compact color legend
+            if user_colors:
+                legend_items = []
+                for username, color in list(user_colors.items())[:10]:  # Show more users
+                    track_count = len(user_times.get(username, []))
+                    # Abbreviate long usernames
+                    short_name = username[:8] + ".." if len(username) > 8 else username
+                    legend_items.append(f"{color}**{short_name}**({track_count})")
+                
+                if legend_items:
+                    # Display in a compact grid format
+                    legend_text = " • ".join(legend_items)
+                    embed.add_field(
+                        name="🎨 Drivers",
+                        value=legend_text,
+                        inline=False
+                    )
+            
+            # Add overall statistics
+            all_times = []
+            total_drivers = set()
+            for track_key in all_track_keys:
+                try:
+                    track = TrackName(track_key)
+                    track_times = await self.bot.lap_time_repository.find_top_by_track(track, 100)  # Get all times
+                    all_times.extend(track_times)
+                    for time in track_times:
+                        total_drivers.add(time.user_id)
+                except:
+                    continue
+            
+            if all_times:
+                embed.add_field(
+                    name="📊 Global Stats",
+                    value=f"Total laps: {len(all_times)}\n"
+                          f"Active drivers: {len(total_drivers)}\n"
+                          f"Tracks with times: {len([k for k in all_track_keys if any(t.track_name.key == k for t in all_times)])}",
+                    inline=True
+                )
+            
+            embed.set_footer(text="🏁 Use /lap leaderboard <track> to see detailed track leaderboards")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in global leaderboard command: {e}")
+            await interaction.followup.send("❌ Error retrieving global leaderboard.", ephemeral=True)
     
     @app_commands.command(name="init", description="Initialize leaderboard in this channel (Admin only)")
     @app_commands.describe(channel="Channel to set as leaderboard channel (optional)")
@@ -398,35 +681,448 @@ class LapCommands(commands.Cog):
         
         await interaction.followup.send(embed=embed)
         
-        # Send initial leaderboard message
-        welcome_embed = discord.Embed(
-            title="🏁 F1 Lap Time Leaderboard",
-            description="Welcome to the F1 lap time tracking system!\\n\\n"
-                       "Submit your lap times with `/lap submit <time> <track>`",
-            color=discord.Color.red()
-        )
+        # Send initial global leaderboard overview
+        await self.bot.update_global_leaderboard()
+    
+    @app_commands.command(name="analytics", description="🔥 Advanced analytics and performance insights!")
+    async def show_analytics(self, interaction: discord.Interaction):
+        """Show advanced analytics dashboard."""
+        await interaction.response.defer()
         
-        welcome_embed.add_field(
-            name="📝 How to Submit",
-            value="Use `/lap submit 1:23.456 monaco` to submit a time",
-            inline=False
-        )
-        
-        welcome_embed.add_field(
-            name="🏆 Features",
-            value="• Live leaderboard updates\\n"
-                  "• Personal best tracking\\n"
-                  "• Overtake notifications\\n"
-                  "• Detailed statistics",
-            inline=False
-        )
-        
-        message = await target_channel.send(embed=welcome_embed)
         try:
-            await message.pin()
-            self.bot.leaderboard_message_id = message.id
-        except discord.HTTPException:
-            pass
+            from ...domain.value_objects.track_name import TrackName
+            import statistics
+            
+            # Get all data for analysis
+            all_track_keys = list(TrackName.TRACK_DATA.keys())
+            all_times = []
+            track_data = {}
+            user_performance = {}
+            
+            for track_key in all_track_keys:
+                try:
+                    track = TrackName(track_key)
+                    times = await self.bot.lap_time_repository.find_top_by_track(track, 100)
+                    if times:
+                        all_times.extend(times)
+                        track_data[track_key] = {
+                            'times': times,
+                            'best': min(times, key=lambda x: x.time_format.total_seconds),
+                            'worst': max(times, key=lambda x: x.time_format.total_seconds),
+                            'avg': statistics.mean([t.time_format.total_seconds for t in times]),
+                            'count': len(times)
+                        }
+                        
+                        # Collect user performance data
+                        for time in times:
+                            if time.username not in user_performance:
+                                user_performance[time.username] = []
+                            user_performance[time.username].append(time.time_format.total_seconds)
+                except:
+                    continue
+            
+            if not all_times:
+                embed = discord.Embed(
+                    title="📊 Analytics Dashboard",
+                    description="No data available yet. Submit some lap times to see analytics!",
+                    color=discord.Color.blue()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            embed = discord.Embed(
+                title="📊 F1 Lap Bot Analytics Dashboard",
+                description="🔥 **Performance insights and statistics across all tracks**",
+                color=discord.Color.from_rgb(255, 20, 147)  # Hot pink for analytics
+            )
+            
+            # 🏆 Hall of Fame - Most dominant drivers
+            track_leaders = {}
+            for track_key, data in track_data.items():
+                leader = data['best'].username
+                track_leaders[leader] = track_leaders.get(leader, 0) + 1
+            
+            if track_leaders:
+                sorted_leaders = sorted(track_leaders.items(), key=lambda x: x[1], reverse=True)[:5]
+                hall_of_fame = ""
+                medals = ["👑", "🥇", "🥈", "🥉", "🏅"]
+                for i, (driver, count) in enumerate(sorted_leaders):
+                    medal = medals[i] if i < len(medals) else "🎖️"
+                    hall_of_fame += f"{medal} **{driver}** - {count} track records\n"
+                
+                embed.add_field(
+                    name="👑 Hall of Fame",
+                    value=hall_of_fame,
+                    inline=True
+                )
+            
+            # 🚀 Speed Demons - Fastest overall times
+            fastest_times = sorted(all_times, key=lambda x: x.time_format.total_seconds)[:5]
+            speed_demons = ""
+            for i, time in enumerate(fastest_times):
+                speed_demons += f"🚀 **{time.track_name.short_name}** - {time.username} `{time.time_format}`\n"
+            
+            embed.add_field(
+                name="🚀 Speed Demons",
+                value=speed_demons,
+                inline=True
+            )
+            
+            # 📈 Track Difficulty Analysis
+            if len(track_data) > 0:
+                # Calculate track difficulty based on average times and spread
+                track_difficulty = []
+                for track_key, data in track_data.items():
+                    if data['count'] >= 3:  # Need at least 3 times for meaningful stats
+                        times = [t.time_format.total_seconds for t in data['times']]
+                        std_dev = statistics.stdev(times) if len(times) > 1 else 0
+                        difficulty_score = data['avg'] + (std_dev * 2)  # Higher = more difficult/inconsistent
+                        track_difficulty.append((track_key, difficulty_score, data['avg']))
+                
+                if track_difficulty:
+                    track_difficulty.sort(key=lambda x: x[1], reverse=True)
+                    hardest_tracks = ""
+                    difficulty_icons = ["💀", "🔥", "⚡", "🌪️", "💥"]
+                    for i, (track_key, score, avg) in enumerate(track_difficulty[:5]):
+                        track = TrackName(track_key)
+                        icon = difficulty_icons[i] if i < len(difficulty_icons) else "🎯"
+                        hardest_tracks += f"{icon} **{track.short_name}** - Avg: `{self._format_time_seconds(avg)}`\n"
+                    
+                    embed.add_field(
+                        name="💀 Hardest Tracks",
+                        value=hardest_tracks,
+                        inline=True
+                    )
+            
+            # 🎯 Consistency Kings - Most consistent drivers
+            consistency_data = []
+            for username, times in user_performance.items():
+                if len(times) >= 5:  # Need at least 5 times
+                    std_dev = statistics.stdev(times)
+                    avg_time = statistics.mean(times)
+                    consistency_score = 100 - (std_dev / avg_time * 100)  # Higher = more consistent
+                    consistency_data.append((username, consistency_score, len(times)))
+            
+            if consistency_data:
+                consistency_data.sort(key=lambda x: x[1], reverse=True)
+                consistency_kings = ""
+                for i, (driver, score, count) in enumerate(consistency_data[:5]):
+                    consistency_kings += f"🎯 **{driver}** - {score:.1f}% ({count} laps)\n"
+                
+                embed.add_field(
+                    name="🎯 Consistency Kings",
+                    value=consistency_kings,
+                    inline=True
+                )
+            
+            # 🏃‍♂️ Most Active Drivers
+            activity_data = [(username, len(times)) for username, times in user_performance.items()]
+            activity_data.sort(key=lambda x: x[1], reverse=True)
+            most_active = ""
+            activity_icons = ["🏃‍♂️", "🚴‍♂️", "🏋️‍♂️", "🤾‍♂️", "🏊‍♂️"]
+            for i, (driver, count) in enumerate(activity_data[:5]):
+                icon = activity_icons[i] if i < len(activity_icons) else "🏃"
+                most_active += f"{icon} **{driver}** - {count} total laps\n"
+            
+            embed.add_field(
+                name="🏃‍♂️ Most Active",
+                value=most_active,
+                inline=True
+            )
+            
+            # 📊 Global Statistics Summary
+            total_unique_drivers = len(user_performance)
+            total_laps = len(all_times)
+            tracks_with_times = len([k for k in all_track_keys if k in track_data])
+            overall_avg = statistics.mean([t.time_format.total_seconds for t in all_times])
+            
+            embed.add_field(
+                name="📊 Global Summary",
+                value=f"🏁 **{total_laps}** total laps\n"
+                      f"🏎️ **{total_unique_drivers}** active drivers\n"
+                      f"🏃‍♂️ **{tracks_with_times}**/{len(all_track_keys)} tracks with times\n"
+                      f"⏱️ Avg lap time: `{self._format_time_seconds(overall_avg)}`",
+                inline=True
+            )
+            
+            embed.set_footer(text="🔥 Analytics update every time new lap times are submitted!")
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in analytics command: {e}")
+            await interaction.followup.send("❌ Error generating analytics.", ephemeral=True)
+    
+    @app_commands.command(name="heatmap", description="🗺️ Show track popularity and performance heatmap")
+    async def show_heatmap(self, interaction: discord.Interaction):
+        """Show track popularity and performance heatmap."""
+        await interaction.response.defer()
+        
+        try:
+            from ...domain.value_objects.track_name import TrackName
+            import statistics
+            
+            all_track_keys = list(TrackName.TRACK_DATA.keys())
+            track_stats = {}
+            
+            # Collect data for each track
+            for track_key in all_track_keys:
+                try:
+                    track = TrackName(track_key)
+                    times = await self.bot.lap_time_repository.find_top_by_track(track, 100)
+                    
+                    if times:
+                        track_stats[track_key] = {
+                            'name': track.short_name,
+                            'country': track.country,
+                            'count': len(times),
+                            'best_time': min(times, key=lambda x: x.time_format.total_seconds),
+                            'avg_time': statistics.mean([t.time_format.total_seconds for t in times]),
+                            'unique_drivers': len(set(t.username for t in times))
+                        }
+                    else:
+                        track_stats[track_key] = {
+                            'name': track.short_name,
+                            'country': track.country,
+                            'count': 0,
+                            'best_time': None,
+                            'avg_time': 0,
+                            'unique_drivers': 0
+                        }
+                except:
+                    continue
+            
+            embed = discord.Embed(
+                title="🗺️ Track Heatmap & Popularity",
+                description="🔥 **Track activity levels and performance overview**",
+                color=discord.Color.from_rgb(255, 69, 0)  # Orange red for heatmap
+            )
+            
+            # 🔥 Hottest Tracks (Most Popular)
+            popular_tracks = sorted(
+                [(k, v) for k, v in track_stats.items() if v['count'] > 0],
+                key=lambda x: x[1]['count'],
+                reverse=True
+            )[:8]
+            
+            if popular_tracks:
+                hottest_tracks = ""
+                heat_levels = ["🔥🔥🔥", "🔥🔥", "🔥", "🌡️", "🌡️", "🌶️", "🌶️", "❄️"]
+                for i, (track_key, data) in enumerate(popular_tracks):
+                    heat = heat_levels[i] if i < len(heat_levels) else "❄️"
+                    hottest_tracks += f"{heat} **{data['name']}** - {data['count']} laps ({data['unique_drivers']} drivers)\n"
+                
+                embed.add_field(
+                    name="🔥 Hottest Tracks",
+                    value=hottest_tracks,
+                    inline=False
+                )
+            
+            # 🏜️ Cold Tracks (Least Popular)
+            cold_tracks = []
+            for track_key, data in track_stats.items():
+                if data['count'] == 0:
+                    cold_tracks.append(data['name'])
+                elif data['count'] <= 2:
+                    cold_tracks.append(f"{data['name']} ({data['count']} laps)")
+            
+            if cold_tracks:
+                cold_tracks_text = "❄️ " + ", ".join(cold_tracks[:10])
+                if len(cold_tracks) > 10:
+                    cold_tracks_text += f" and {len(cold_tracks) - 10} more..."
+                
+                embed.add_field(
+                    name="❄️ Tracks Needing Love",
+                    value=cold_tracks_text,
+                    inline=False
+                )
+            
+            # 🏎️ Speed Zones (Fastest Average Times)
+            speed_zones = sorted(
+                [(k, v) for k, v in track_stats.items() if v['count'] >= 3],
+                key=lambda x: x[1]['avg_time']
+            )[:5]
+            
+            if speed_zones:
+                speed_zones_text = ""
+                for track_key, data in speed_zones:
+                    best_driver = data['best_time'].username if data['best_time'] else "N/A"
+                    speed_zones_text += f"💨 **{data['name']}** - Avg: `{self._format_time_seconds(data['avg_time'])}` (Best: {best_driver})\n"
+                
+                embed.add_field(
+                    name="💨 Speed Zones",
+                    value=speed_zones_text,
+                    inline=True
+                )
+            
+            # 📊 Activity Overview
+            total_active_tracks = len([t for t in track_stats.values() if t['count'] > 0])
+            total_inactive_tracks = len([t for t in track_stats.values() if t['count'] == 0])
+            total_laps = sum(t['count'] for t in track_stats.values())
+            
+            embed.add_field(
+                name="📊 Track Overview",
+                value=f"🏁 **{total_active_tracks}** active tracks\n"
+                      f"❄️ **{total_inactive_tracks}** inactive tracks\n"
+                      f"🏎️ **{total_laps}** total laps recorded\n"
+                      f"🎯 Avg: **{total_laps / max(total_active_tracks, 1):.1f}** laps per active track",
+                inline=True
+            )
+            
+            embed.set_footer(text="🗺️ Set times on cold tracks to heat them up!")
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in heatmap command: {e}")
+            await interaction.followup.send("❌ Error generating heatmap.", ephemeral=True)
+    
+    @app_commands.command(name="rivalries", description="⚔️ Show the most epic driver rivalries!")
+    async def show_rivalries(self, interaction: discord.Interaction):
+        """Show driver rivalries and head-to-head comparisons."""
+        await interaction.response.defer()
+        
+        try:
+            from ...domain.value_objects.track_name import TrackName
+            
+            all_track_keys = list(TrackName.TRACK_DATA.keys())
+            user_track_times = {}  # {username: {track: best_time}}
+            rivalries = {}  # {(user1, user2): {'battles': int, 'user1_wins': int, 'user2_wins': int}}
+            
+            # Collect each user's best time per track
+            for track_key in all_track_keys:
+                try:
+                    track = TrackName(track_key)
+                    times = await self.bot.lap_time_repository.find_top_by_track(track, 100)
+                    
+                    track_user_best = {}
+                    for time in times:
+                        if time.username not in track_user_best or time.is_faster_than(track_user_best[time.username]):
+                            track_user_best[time.username] = time
+                    
+                    # Store each user's best time for this track
+                    for username, best_time in track_user_best.items():
+                        if username not in user_track_times:
+                            user_track_times[username] = {}
+                        user_track_times[username][track_key] = best_time
+                except:
+                    continue
+            
+            # Calculate rivalries
+            usernames = list(user_track_times.keys())
+            for i, user1 in enumerate(usernames):
+                for j, user2 in enumerate(usernames[i+1:], i+1):
+                    battles = 0
+                    user1_wins = 0
+                    user2_wins = 0
+                    
+                    # Check each track where both have times
+                    for track_key in all_track_keys:
+                        if track_key in user_track_times[user1] and track_key in user_track_times[user2]:
+                            battles += 1
+                            time1 = user_track_times[user1][track_key]
+                            time2 = user_track_times[user2][track_key]
+                            
+                            if time1.is_faster_than(time2):
+                                user1_wins += 1
+                            else:
+                                user2_wins += 1
+                    
+                    if battles >= 3:  # Only consider rivalries with at least 3 battles
+                        rivalry_key = tuple(sorted([user1, user2]))
+                        rivalries[rivalry_key] = {
+                            'battles': battles,
+                            'user1': user1 if user1 == rivalry_key[0] else user2,
+                            'user2': user2 if user1 == rivalry_key[0] else user1,
+                            'user1_wins': user1_wins if user1 == rivalry_key[0] else user2_wins,
+                            'user2_wins': user2_wins if user1 == rivalry_key[0] else user1_wins
+                        }
+            
+            embed = discord.Embed(
+                title="⚔️ Epic Driver Rivalries",
+                description="🔥 **Head-to-head battles across the circuit!**",
+                color=discord.Color.from_rgb(220, 20, 60)  # Crimson for rivalries
+            )
+            
+            if not rivalries:
+                embed.add_field(
+                    name="🤷‍♂️ No Rivalries Yet",
+                    value="Need at least 2 drivers with 3+ head-to-head battles to show rivalries.\nGet racing!",
+                    inline=False
+                )
+            else:
+                # Sort by total battles and competitiveness
+                sorted_rivalries = sorted(
+                    rivalries.items(),
+                    key=lambda x: (x[1]['battles'], abs(x[1]['user1_wins'] - x[1]['user2_wins'])),
+                    reverse=True
+                )
+                
+                rivalries_text = ""
+                for i, ((user1, user2), data) in enumerate(sorted_rivalries[:6]):
+                    battles = data['battles']
+                    u1_wins = data['user1_wins']
+                    u2_wins = data['user2_wins']
+                    
+                    # Determine rivalry intensity
+                    if abs(u1_wins - u2_wins) <= 1:
+                        intensity = "🔥🔥🔥"  # Super close
+                    elif abs(u1_wins - u2_wins) <= 2:
+                        intensity = "🔥🔥"    # Close
+                    else:
+                        intensity = "🔥"      # One-sided but still a rivalry
+                    
+                    rivalries_text += f"{intensity} **{data['user1']}** vs **{data['user2']}**\n"
+                    rivalries_text += f"     `{u1_wins}-{u2_wins}` ({battles} battles)\n\n"
+                
+                embed.add_field(
+                    name="🏆 Top Rivalries",
+                    value=rivalries_text,
+                    inline=False
+                )
+                
+                # Most Dominant Driver
+                driver_dominance = {}
+                for (user1, user2), data in rivalries.items():
+                    u1 = data['user1']
+                    u2 = data['user2']
+                    u1_wins = data['user1_wins']
+                    u2_wins = data['user2_wins']
+                    
+                    if u1 not in driver_dominance:
+                        driver_dominance[u1] = {'wins': 0, 'battles': 0}
+                    if u2 not in driver_dominance:
+                        driver_dominance[u2] = {'wins': 0, 'battles': 0}
+                    
+                    driver_dominance[u1]['wins'] += u1_wins
+                    driver_dominance[u1]['battles'] += data['battles']
+                    driver_dominance[u2]['wins'] += u2_wins
+                    driver_dominance[u2]['battles'] += data['battles']
+                
+                # Calculate win rates
+                dominant_drivers = []
+                for driver, stats in driver_dominance.items():
+                    if stats['battles'] >= 5:  # Minimum battles for consideration
+                        win_rate = (stats['wins'] / stats['battles']) * 100
+                        dominant_drivers.append((driver, win_rate, stats['wins'], stats['battles']))
+                
+                if dominant_drivers:
+                    dominant_drivers.sort(key=lambda x: x[1], reverse=True)
+                    dominance_text = ""
+                    for i, (driver, win_rate, wins, battles) in enumerate(dominant_drivers[:5]):
+                        crown = "👑" if i == 0 else "🏆" if i < 3 else "🥇"
+                        dominance_text += f"{crown} **{driver}** - {win_rate:.1f}% ({wins}/{battles})\n"
+                    
+                    embed.add_field(
+                        name="👑 Most Dominant",
+                        value=dominance_text,
+                        inline=True
+                    )
+            
+            embed.set_footer(text="⚔️ Rivalries are based on head-to-head best times per track!")
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in rivalries command: {e}")
+            await interaction.followup.send("❌ Error generating rivalries.", ephemeral=True)
 
 
 # Create command group for lap commands
@@ -443,7 +1139,10 @@ async def setup(bot):
         lap_group.add_command(cog.show_leaderboard)
         lap_group.add_command(cog.show_personal_stats)
         lap_group.add_command(cog.random_challenge)
+        lap_group.add_command(cog.track_info)
+        lap_group.add_command(cog.delete_lap_time)
         lap_group.add_command(cog.list_tracks)
+        lap_group.add_command(cog.show_global_leaderboard)
         lap_group.add_command(cog.init_leaderboard)
         
         bot.tree.add_command(lap_group)

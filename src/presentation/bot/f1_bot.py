@@ -97,50 +97,58 @@ class F1LapBot(commands.Bot):
         return self.get_channel(self.history_channel_id)
     
     async def update_leaderboard(self, track_name: str):
-        """Update the pinned leaderboard for a track."""
+        """Update the pinned global leaderboard."""
+        await self.update_global_leaderboard()
+    
+    async def update_global_leaderboard(self):
+        """Update the pinned global leaderboard with all tracks overview."""
         channel = self.get_leaderboard_channel()
         if not channel:
             return
         
         try:
             from ...domain.value_objects.track_name import TrackName
-            track = TrackName(track_name)
             
-            # Get top 5 times for the track
-            top_times = await self.lap_time_repository.find_top_by_track(track, 5)
+            # Get a list of important tracks to display
+            key_tracks = ["monaco", "silverstone", "spa", "monza", "cota", "suzuka", "interlagos", "bahrain"]
             
-            # Create beautiful embed with track data
             embed = discord.Embed(
-                title=f"🏁 {track.display_name}",
-                color=discord.Color.red(),
-                description=f"🌍 **{track.country}** • Top 5 fastest lap times"
+                title="🏁 F1 Lap Time Leaderboard",
+                description="Current track record holders across all circuits",
+                color=discord.Color.red()
             )
             
-            # Add track layout image and country flag
-            embed.set_image(url=track.image_url)
-            embed.set_thumbnail(url=track.flag_url)
+            # Build track overview
+            track_overview = ""
+            for track_key in key_tracks:
+                try:
+                    track = TrackName(track_key)
+                    best_time = await self.lap_time_repository.find_best_by_track(track)
+                    
+                    if best_time:
+                        track_overview += f"{track.flag_emoji} **{track.short_name}** - {best_time.username} `{best_time.time_format}`\n"
+                    else:
+                        track_overview += f"{track.flag_emoji} **{track.short_name}** - `-`\n"
+                except Exception as e:
+                    print(f"Error processing track {track_key}: {e}")
+                    continue
             
-            if not top_times:
+            if track_overview:
                 embed.add_field(
-                    name="No times yet",
-                    value="Be the first to submit a lap time with `/lap submit`!",
-                    inline=False
-                )
-            else:
-                medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
-                leaderboard_text = ""
-                
-                for i, lap_time in enumerate(top_times):
-                    medal = medals[i] if i < len(medals) else f"{i+1}️⃣"
-                    leaderboard_text += f"{medal} **{lap_time.username}** - `{lap_time.time_format}`\\n"
-                
-                embed.add_field(
-                    name="🏆 Current Leaders",
-                    value=leaderboard_text,
+                    name="🏆 Track Records",
+                    value=track_overview,
                     inline=False
                 )
             
-            embed.set_footer(text="Use /lap submit <time> <track> to add your time!")
+            # Add usage information
+            embed.add_field(
+                name="🎮 Getting Started",
+                value="Use `/lap submit <time> <track>` to submit your lap time!\n"
+                      "Example: `/lap submit 1:23.456 monaco`",
+                inline=False
+            )
+            
+            embed.set_footer(text="🏁 Submit times • View tracks with /lap tracks • Get help with /lap h")
             
             # Update or create leaderboard message
             if self.leaderboard_message_id:
@@ -160,7 +168,7 @@ class F1LapBot(commands.Bot):
                 pass  # Couldn't pin, but message was sent
                 
         except Exception as e:
-            print(f"❌ Error updating leaderboard: {e}")
+            print(f"❌ Error updating global leaderboard: {e}")
     
     async def log_to_history(self, lap_time, is_personal_best: bool, is_overall_best: bool):
         """Log a new lap time to the history channel."""

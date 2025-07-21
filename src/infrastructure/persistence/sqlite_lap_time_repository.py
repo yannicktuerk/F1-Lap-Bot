@@ -279,3 +279,29 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             lap_time.mark_as_overall_best()
         
         return lap_time
+    
+    async def delete_lap_time(self, lap_id: str) -> bool:
+        """Delete a lap time by ID. Returns True if successful."""
+        await self._ensure_table_exists()
+        
+        async with aiosqlite.connect(self._database_path) as db:
+            cursor = await db.execute("DELETE FROM lap_times WHERE lap_id = ?", (lap_id,))
+            await db.commit()
+            
+            # Return True if a row was actually deleted
+            return cursor.rowcount > 0
+    
+    async def find_user_times_by_track(self, user_id: str, track: TrackName) -> List[LapTime]:
+        """Find all lap times for a user on a specific track, ordered by time."""
+        await self._ensure_table_exists()
+        
+        async with aiosqlite.connect(self._database_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("""
+                SELECT * FROM lap_times 
+                WHERE user_id = ? AND track_key = ?
+                ORDER BY created_at ASC
+            """, (user_id, track.key))
+            rows = await cursor.fetchall()
+            
+            return [self._row_to_lap_time(row) for row in rows]

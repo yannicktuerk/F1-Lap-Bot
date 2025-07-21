@@ -171,6 +171,7 @@ class TrackName:
     
     # Alternative names/abbreviations
     ALIASES = {
+        # Circuit abbreviations
         'cota': 'usa',
         'vegas': 'las-vegas',
         'jeddah': 'saudi',
@@ -187,7 +188,51 @@ class TrackName:
         'losail': 'qatar',
         'hermanos-rodriguez': 'mexico',
         'interlagos': 'brazil',
-        'yas-marina': 'abu-dhabi'
+        'yas-marina': 'abu-dhabi',
+        
+        # City names
+        'melbourne': 'australia',
+        'montreal': 'canada',
+        'budapest': 'hungary',
+        'francorchamps': 'spa',
+        'tokyo': 'japan',
+        'suzuka-city': 'japan',
+        'doha': 'qatar',
+        'mexico-city': 'mexico',
+        'sao-paulo': 'brazil',
+        'manama': 'bahrain',
+        'riyadh': 'saudi',
+        'shanghai': 'china',
+        'paul-ricard': 'france',
+        'portimao': 'portugal',
+        'algarve': 'portugal',
+        
+        # Country aliases
+        'uk': 'silverstone',
+        'britain': 'silverstone',
+        'england': 'silverstone',
+        'united-kingdom': 'silverstone',
+        'italy': 'monza',  # Default Italian track
+        'belgium': 'spa',
+        'germany': 'netherlands',  # Closest alternative since Nurburgring isn't in F1 calendar
+        'holland': 'netherlands',
+        'uae': 'abu-dhabi',
+        'united-arab-emirates': 'abu-dhabi',
+        'saudi-arabia': 'saudi',
+        'united-states': 'usa',  # Default to Austin
+        'america': 'usa',
+        
+        # Additional aliases
+        'austin': 'usa',
+        'texas': 'usa',
+        'houston': 'usa',  # Texas city alias for USA track
+        'dallas': 'usa',   # Another Texas city
+        'miami-gardens': 'miami',
+        'florida': 'miami',
+        'las-vegas-strip': 'las-vegas',
+        'nevada': 'las-vegas',
+        'spielberg': 'austria',
+        'styria': 'austria'
     }
     
     def __init__(self, track_input: str):
