@@ -1,6 +1,6 @@
 # 🏁 F1 Lap Time Discord Bot
 
-Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, persönlichen Bestzeiten und automatischen Benachrichtigungen.
+Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Advanced Analytics, Driver Rivalries und automatischen Benachrichtigungen.
 
 ## 🚀 Quick Start
 
@@ -36,6 +36,9 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, pers
 - **Live-Leaderboard**  
   Statisch gepinnter Embed im Kanal mit Top-5-Ansicht, automatisches Update bei jeder neuen Eintragung
 
+- **Global Leaderboard**  
+  Übersicht aller Streckenrekorde mit farbkodiertem System zur Fahrer-Identifikation
+
 - **Benachrichtigungen bei Überholen**  
   Direkte DM an den bisherigen Führenden, sobald jemand die Spitze übernimmt
 
@@ -45,42 +48,71 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, pers
 - **Persönliche Statistiken**  
   Detaillierte Auswertung der eigenen Rundenzeiten mit `/lap stats`
 
+### 📊 Advanced Analytics
+
+- **Analytics Dashboard**  
+  Umfassende Performance-Einblicke mit Hall of Fame, Speed Demons, Track Difficulty Analysis und Consistency Rankings
+
+- **Track Heatmap**  
+  Visualisierung der Strecken-Popularität mit "heißen" und "kalten" Tracks sowie Speed Zones
+
+- **Driver Rivalries**  
+  Head-to-Head Vergleiche zwischen Fahrern mit Rivalry-Rankings und Dominanz-Statistiken
+
 ### 🎮 Verfügbare Commands
 
+#### 🏁 Basis Commands
 | Command | Beschreibung |
 |---------|-------------|
 | `/lap submit <zeit> <strecke>` | Rundenzeit einreichen |
-| `/lap leaderboard <strecke>` | Leaderboard für Strecke anzeigen |
+| `/lap leaderboard <strecke>` | Leaderboard für spezifische Strecke |
+| `/lap global` | Globales Leaderboard aller Streckenrekorde |
 | `/lap stats` | Persönliche Statistiken |
 | `/lap tracks` | Alle verfügbaren Strecken auflisten |
-| `/lap init [kanal]` | Leaderboard initialisieren (Admin) |
+| `/lap info <strecke>` | Detaillierte Strecken-Informationen |
+| `/lap challenge` | Zufällige Strecken-Challenge |
+| `/lap delete <strecke>` | Eigene Bestzeit löschen |
+
+#### 📊 Analytics Commands
+| Command | Beschreibung |
+|---------|-------------|
+| `/lap analytics` | Advanced Analytics Dashboard |
+| `/lap heatmap` | Strecken-Popularität und Performance Heatmap |
+| `/lap rivalries` | Driver Rivalries und Head-to-Head Statistiken |
+
+#### ⚙️ Admin Commands
+| Command | Beschreibung |
+|---------|-------------|
+| `/lap init [kanal]` | Leaderboard initialisieren (Admin only) |
 
 ### 🏎️ Unterstützte Strecken
 
-Alle 2025 F1-Strecken sind verfügbar:
+Alle 2025 F1-Strecken sind verfügbar mit Länder-/Stadt-Aliases:
 - **Bahrain** (bahrain)
 - **Saudi-Arabien** (saudi, jeddah)
 - **Australien** (australia, albert-park)
-- **Baku** (baku)
-- **Miami** (miami)
-- **Imola** (imola)
+- **Baku** (baku, azerbaijan)
+- **Miami** (miami, usa-miami)
+- **Imola** (imola, italy-imola)
 - **Monaco** (monaco)
 - **Spanien** (spain, barcelona, catalunya)
 - **Kanada** (canada, villeneuve)
 - **Österreich** (austria, red-bull-ring)
-- **Silverstone** (silverstone)
-- **Ungarn** (hungary, hungaroring)
-- **Spa** (spa, spa-francorchamps)
+- **Silverstone** (silverstone, uk, britain)
+- **Ungarn** (hungary, hungaroring, budapest)
+- **Spa** (spa, spa-francorchamps, belgium)
 - **Niederlande** (netherlands, zandvoort)
-- **Monza** (monza)
+- **Monza** (monza, italy-monza)
 - **Singapur** (singapore, marina-bay)
 - **Japan** (japan, suzuka)
 - **Katar** (qatar, losail)
-- **USA** (usa, cota)
+- **USA** (usa, cota, austin, houston)
 - **Mexiko** (mexico, hermanos-rodriguez)
-- **Brasilien** (brazil, interlagos)
-- **Las Vegas** (las-vegas, vegas)
-- **Abu Dhabi** (abu-dhabi, yas-marina)
+- **Brasilien** (brazil, interlagos, sao-paulo)
+- **Las Vegas** (las-vegas, vegas, nevada)
+- **Abu Dhabi** (abu-dhabi, yas-marina, uae)
+
+**💡 Pro-Tip:** Du kannst auch Städtenamen wie "houston", "baku" oder "austin" verwenden!
 
 ### 📊 Zeit-Formate
 
@@ -178,6 +210,18 @@ python -m pytest tests/ --cov=src/
 - **Testing Pyramid:** 70% Unit / 20% Integration / 10% E2E
 
 ## 🔄 Changelog
+
+### v1.2.0 (2025-07-21)
+- 🔥 **NEW:** Advanced Analytics Dashboard mit Hall of Fame, Speed Demons, Track Difficulty
+- 🗺️ **NEW:** Track Heatmap mit Popularitäts- und Performance-Analyse
+- ⚔️ **NEW:** Driver Rivalries mit Head-to-Head Statistiken
+- 🏆 **NEW:** Global Leaderboard mit farbkodiertem System
+- 🌍 **NEW:** Erweiterte Strecken-Aliases (Städte/Länder: "houston", "baku", etc.)
+- 🎯 **NEW:** Random Track Challenge System
+- 📊 **NEW:** Detaillierte Strecken-Informationen mit `/lap info`
+- 🗑️ **NEW:** Delete-Funktion für eigene Bestzeiten
+- ✨ **IMPROVED:** Kompaktere Global Leaderboard Darstellung
+- ✨ **IMPROVED:** Enhanced Color-Legend System
 
 ### v1.0.0 (2025-07-21)
 - ✅ Initial Release
