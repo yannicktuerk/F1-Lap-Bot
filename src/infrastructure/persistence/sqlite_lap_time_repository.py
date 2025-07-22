@@ -334,3 +334,24 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             await db.commit()
             
             return cursor.rowcount
+    
+    async def reset_all_data(self) -> bool:
+        """Reset all lap time data in the database."""
+        try:
+            await self._ensure_table_exists()
+            
+            async with aiosqlite.connect(self._database_path) as db:
+                # Delete all records from the lap_times table
+                await db.execute("DELETE FROM lap_times")
+                await db.commit()
+                
+                # Optionally reset the auto-increment counter if using INTEGER PRIMARY KEY
+                # This is not needed for our UUID-based lap_id, but good practice for cleanup
+                await db.execute("DELETE FROM sqlite_sequence WHERE name='lap_times'")
+                await db.commit()
+                
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error resetting lap time data: {e}")
+            return False

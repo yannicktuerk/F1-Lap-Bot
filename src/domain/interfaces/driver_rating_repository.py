@@ -37,3 +37,8 @@ class DriverRatingRepository(ABC):
     async def delete_by_user_id(self, user_id: str) -> bool:
         """Delete a driver rating by user ID."""
         pass
+    
+    @abstractmethod
+    async def reset_all_data(self) -> bool:
+        """Reset all driver rating data in the database."""
+        pass

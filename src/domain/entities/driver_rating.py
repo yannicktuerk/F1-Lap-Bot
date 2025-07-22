@@ -99,7 +99,7 @@ class DriverRating:
         """Calculate expected score against opponent using ELO formula."""
         return 1.0 / (1.0 + 10.0 ** ((opponent_elo - self._current_elo) / 400.0))
     
-    def get_elo_trend(self, days: int = 30) -> int:
+    def get_elo_trend(self, days: int = 7) -> int:
         """Get ELO trend over specified days (placeholder for future implementation)."""
         # This would be implemented with historical ELO tracking
         return 0

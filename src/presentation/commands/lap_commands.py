@@ -1349,7 +1349,7 @@ class LapCommands(commands.Cog):
             
             embed.add_field(
                 name="📊 Analysis",
-                value=f"{trend_emoji} 30-day trend: `{elo_trend:+d}`\n🎯 Wins: **{driver_rating.wins}** | Losses: **{driver_rating.losses}**",
+                value=f"{trend_emoji} 7-day trend: `{elo_trend:+d}`\n🎯 Wins: **{driver_rating.wins}** | Losses: **{driver_rating.losses}**",
                 inline=False
             )
             
@@ -1448,6 +1448,158 @@ class LapCommands(commands.Cog):
             "Beginner": "🏁"
         }
         return emojis.get(skill_level, "🏁")
+    
+    @app_commands.command(name="reset", description="🗑️ Reset all lap times and data (Admin only)")
+    @commands.has_permissions(administrator=True)
+    async def reset_database(self, interaction: discord.Interaction):
+        """Reset all lap times and data - ADMIN ONLY."""
+        await interaction.response.defer(ephemeral=True)  # Make this ephemeral for security
+        
+        try:
+            # Create confirmation embed
+            embed = discord.Embed(
+                title="⚠️ DANGER ZONE - DATABASE RESET",
+                description="**🚨 This will permanently delete ALL data:**\n\n"
+                           "• All lap times\n"
+                           "• All ELO ratings\n"
+                           "• All user statistics\n"
+                           "• All leaderboard data\n\n"
+                           "**⚠️ THIS CANNOT BE UNDONE!**",
+                color=discord.Color.red()
+            )
+            
+            embed.add_field(
+                name="🔒 Admin Action",
+                value=f"Requested by: {interaction.user.mention}",
+                inline=False
+            )
+            
+            # Add confirmation buttons
+            class ResetConfirmView(discord.ui.View):
+                def __init__(self, timeout=120):  # 2 minute timeout for safety
+                    super().__init__(timeout=timeout)
+                    self.confirmed = None
+                
+                @discord.ui.button(
+                    label="🗑️ YES, RESET EVERYTHING", 
+                    style=discord.ButtonStyle.danger,
+                    emoji="⚠️"
+                )
+                async def confirm_reset(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                    if button_interaction.user.id != interaction.user.id:
+                        await button_interaction.response.send_message(
+                            "❌ Only the administrator who initiated this can confirm.", 
+                            ephemeral=True
+                        )
+                        return
+                    
+                    self.confirmed = True
+                    self.stop()
+                    await button_interaction.response.defer()
+                
+                @discord.ui.button(
+                    label="❌ Cancel - Keep Data Safe", 
+                    style=discord.ButtonStyle.secondary,
+                    emoji="🛡️"
+                )
+                async def cancel_reset(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                    if button_interaction.user.id != interaction.user.id:
+                        await button_interaction.response.send_message(
+                            "❌ Only the administrator who initiated this can confirm.", 
+                            ephemeral=True
+                        )
+                        return
+                    
+                    self.confirmed = False
+                    self.stop()
+                    await button_interaction.response.defer()
+            
+            view = ResetConfirmView()
+            message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            
+            # Wait for confirmation
+            await view.wait()
+            
+            if view.confirmed is None:  # Timeout
+                embed.title = "⏰ Reset Timeout"
+                embed.description = "Database reset cancelled due to timeout. All data remains safe."
+                embed.color = discord.Color.light_grey()
+                await message.edit(embed=embed, view=None)
+                return
+            
+            if not view.confirmed:  # User cancelled
+                embed.title = "✅ Reset Cancelled"
+                embed.description = "Database reset cancelled. All data remains safe!"
+                embed.color = discord.Color.green()
+                await message.edit(embed=embed, view=None)
+                return
+            
+            # User confirmed - proceed with reset
+            embed = discord.Embed(
+                title="🔄 Resetting Database...",
+                description="Please wait while all data is being cleared...",
+                color=discord.Color.orange()
+            )
+            await message.edit(embed=embed, view=None)
+            
+            # Perform the actual reset
+            try:
+                # Reset all repositories
+                await self.bot.lap_time_repository.reset_all_data()
+                await self.bot.driver_rating_repository.reset_all_data()
+                
+                # Success embed
+                embed = discord.Embed(
+                    title="✅ Database Reset Complete",
+                    description="**All data has been successfully cleared:**\n\n"
+                               "• All lap times deleted\n"
+                               "• All ELO ratings reset\n"
+                               "• All statistics cleared\n"
+                               "• Leaderboards emptied\n\n"
+                               "🚀 **Ready for fresh data!** Users can start submitting new lap times.",
+                    color=discord.Color.green()
+                )
+                
+                embed.add_field(
+                    name="🔄 Next Steps",
+                    value="Users can now start fresh with `/lap submit <time> <track>`",
+                    inline=False
+                )
+                
+                embed.set_footer(
+                    text=f"Reset completed by {interaction.user.display_name} at {interaction.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC"
+                )
+                
+                await message.edit(embed=embed)
+                
+                # Also send a public notification (optional - remove if you want it to be completely silent)
+                public_embed = discord.Embed(
+                    title="🔄 Database Reset",
+                    description="The F1 Lap Bot database has been reset by an administrator.\n\n"
+                               "🚀 **Ready to race again!** Submit your lap times with `/lap submit <time> <track>`",
+                    color=discord.Color.blue()
+                )
+                
+                # Send to the same channel (you can modify this to send to a specific channel)
+                await interaction.followup.send(embed=public_embed, ephemeral=False)
+                
+            except Exception as reset_error:
+                embed = discord.Embed(
+                    title="❌ Reset Failed",
+                    description=f"An error occurred during database reset:\n`{str(reset_error)}`\n\nPlease check logs and try again.",
+                    color=discord.Color.red()
+                )
+                await message.edit(embed=embed)
+                print(f"❌ Database reset error: {reset_error}")
+        
+        except Exception as e:
+            print(f"❌ Error in reset command: {e}")
+            error_embed = discord.Embed(
+                title="❌ Reset Command Error",
+                description="An error occurred while processing the reset command.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
     
     @app_commands.command(name="help", description="📚 Show all available F1 Lap Bot commands and features")
     async def show_help(self, interaction: discord.Interaction):
@@ -1602,5 +1754,6 @@ async def setup(bot):
         lap_group.add_command(cog.show_elo_leaderboard)
         lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
+        lap_group.add_command(cog.reset_database)
         
         bot.tree.add_command(lap_group)

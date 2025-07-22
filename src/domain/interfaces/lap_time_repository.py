@@ -127,3 +127,13 @@ class LapTimeRepository(ABC):
             Dictionary containing track statistics like total laps, average time, etc.
         """
         pass
+    
+    @abstractmethod
+    async def reset_all_data(self) -> bool:
+        """
+        Reset all lap time data in the database.
+        
+        Returns:
+            True if reset was successful, False otherwise
+        """
+        pass

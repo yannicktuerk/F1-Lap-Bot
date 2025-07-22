@@ -161,3 +161,22 @@ class SQLiteDriverRatingRepository(DriverRatingRepository):
             cursor.execute("DELETE FROM driver_ratings WHERE user_id = ?", (user_id,))
             conn.commit()
             return cursor.rowcount > 0
+    
+    async def reset_all_data(self) -> bool:
+        """Reset all driver rating data in the database."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # Delete all records from the driver_ratings table
+                cursor.execute("DELETE FROM driver_ratings")
+                conn.commit()
+                
+                # Reset the auto-increment counter if using INTEGER PRIMARY KEY
+                cursor.execute("DELETE FROM sqlite_sequence WHERE name='driver_ratings'")
+                conn.commit()
+                
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error resetting driver rating data: {e}")
+            return False
