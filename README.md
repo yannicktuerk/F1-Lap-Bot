@@ -83,6 +83,7 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 | `/lap info <strecke>` | Detaillierte Strecken-Informationen |
 | `/lap challenge` | Zufällige Strecken-Challenge |
 | `/lap delete <strecke> <zeit>` | Spezifische Zeit löschen |
+| `/lap deletelast` | Letzte eingetragene Zeit löschen |
 | `/lap deleteall <strecke>` | ALLE eigenen Zeiten für eine Strecke löschen |
 | `/lap help` | Vollständige Command-Übersicht mit Quick Start Guide |
 
@@ -103,6 +104,7 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 | Command | Beschreibung |
 |---------|-------------|
 | `/lap init [kanal]` | Leaderboard initialisieren (Admin only) |
+| `/lap reset <password>` | Datenbank zurücksetzen mit Passwort-Schutz (Admin only) |
 
 ### 🏎️ Unterstützte Strecken
 
@@ -174,6 +176,7 @@ DISCORD_TOKEN=your_discord_bot_token_here
 GUILD_ID=your_discord_guild_id_here
 LEADERBOARD_CHANNEL_ID=channel_id_for_leaderboard
 HISTORY_CHANNEL_ID=channel_id_for_history
+RESET_PASSWORD=your_secure_reset_password_here
 ```
 
 ### Discord Bot Setup
@@ -240,6 +243,11 @@ python -m pytest tests/ --cov=src/
 - **Testing Pyramid:** 70% Unit / 20% Integration / 10% E2E
 
 ## 🔄 Changelog
+
+### v1.4.1 (2025-07-22)
+- 🚀 **NEW:** `/lap deletelast` command for quick deletion of the most recent lap time
+- 🔒 **SECURITY:** Added password protection to the database reset command
+- 🔧 **ENHANCED:** Updated environment setup with reset password entry
 
 ### v1.3.3 (2025-07-22)
 - 🗑️ **NEW:** `/lap deleteall <track>` command für Bulk-Löschung aller eigenen Zeiten
