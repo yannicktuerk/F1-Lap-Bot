@@ -82,7 +82,8 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 | `/lap tracks` | Alle verfügbaren Strecken auflisten |
 | `/lap info <strecke>` | Detaillierte Strecken-Informationen |
 | `/lap challenge` | Zufällige Strecken-Challenge |
-| `/lap delete <strecke>` | Eigene Bestzeit löschen |
+| `/lap delete <strecke> <zeit>` | Spezifische Zeit löschen |
+| `/lap deleteall <strecke>` | ALLE eigenen Zeiten für eine Strecke löschen |
 | `/lap help` | Vollständige Command-Übersicht mit Quick Start Guide |
 
 #### 📊 Analytics Commands
@@ -239,6 +240,12 @@ python -m pytest tests/ --cov=src/
 - **Testing Pyramid:** 70% Unit / 20% Integration / 10% E2E
 
 ## 🔄 Changelog
+
+### v1.3.3 (2025-07-22)
+- 🗑️ **NEW:** `/lap deleteall <track>` command für Bulk-Löschung aller eigenen Zeiten
+- 🛡️ **NEW:** Interaktive Bestätigung mit Discord-Buttons und Timeout-Schutz
+- 📋 **NEW:** Vorschau der zu löschenden Zeiten vor Bestätigung
+- 🔧 **ENHANCED:** Vollständiges Delete-System mit spezifischer und Bulk-Löschung
 
 ### v1.3.2 (2025-07-22)
 - 🧠 **NEW:** ELO-basiertes Fahrer-Bewertungssystem implementiert
