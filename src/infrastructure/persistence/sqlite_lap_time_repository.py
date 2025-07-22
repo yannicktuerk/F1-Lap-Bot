@@ -289,7 +289,7 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             return cursor.rowcount > 0
     
     async def find_user_times_by_track(self, user_id: str, track: TrackName) -> List[LapTime]:
-        """Find all lap times for a user on a specific track, ordered by time."""
+        """Find all lap times for a user on a specific track, ordered by most recent first."""
         await self._ensure_table_exists()
         
         async with aiosqlite.connect(self._database_path) as db:
@@ -297,7 +297,7 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             cursor = await db.execute("""
                 SELECT * FROM lap_times 
                 WHERE user_id = ? AND track_key = ?
-                ORDER BY created_at ASC
+                ORDER BY created_at DESC
             """, (user_id, track.key))
             rows = await cursor.fetchall()
             
