@@ -212,6 +212,12 @@ python -m pytest tests/ --cov=src/
 
 ## 🔄 Changelog
 
+### v1.3.1 (2025-07-22)
+- 🚫 **NEW:** Validation verhindert das Einreichen langsamerer Rundenzeiten
+- ⚡ **ENHANCED:** Nur schnellere Zeiten als die aktuelle persönliche Bestzeit können eingereicht werden
+- 📊 **IMPROVED:** Detaillierte Fehlermeldung zeigt Zeitunterschied bei langsameren Zeiten
+- 🎯 **QUALITY:** Sauberere Datenbank durch Vermeidung langsamerer Zeiten
+
 ### v1.3.0 (2025-07-22)
 - 🏆 **BREAKING:** Leaderboard zeigt jetzt die 10 absolut schnellsten Zeiten (nicht mehr beste pro User)
 - 🎯 **NEW:** Ein User kann theoretisch mehrere Einträge in den Top 10 haben
