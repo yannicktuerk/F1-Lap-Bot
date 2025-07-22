@@ -1143,6 +1143,156 @@ class LapCommands(commands.Cog):
             print(f"❌ Error in rivalries command: {e}")
             await interaction.followup.send("❌ Error generating rivalries.", ephemeral=True)
     
+    @app_commands.command(name="rating", description="🧠 Show your AI-powered ELO skill rating")
+    async def show_driver_rating(self, interaction: discord.Interaction):
+        """Show driver's ELO rating and skill assessment."""
+        await interaction.response.defer()
+        
+        try:
+            user_id = str(interaction.user.id)
+            
+            # Get driver rating
+            driver_rating = await self.bot.driver_rating_repository.find_by_user_id(user_id)
+            
+            if not driver_rating:
+                embed = discord.Embed(
+                    title="🏁 No Rating Yet",
+                    description="Submit some lap times to get your ELO rating!\nUse `/lap submit <time> <track>` to start.",
+                    color=discord.Color.blue()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # Get user rank
+            user_rank = await self.bot.driver_rating_repository.get_user_rank(user_id)
+            
+            embed = discord.Embed(
+                title=f"🧠 {interaction.user.display_name}'s ELO Rating",
+                description=f"**{driver_rating.skill_level}** Driver",
+                color=self._get_skill_color(driver_rating.skill_level)
+            )
+            
+            # Current ELO and Peak
+            embed.add_field(
+                name="⚡ Current Rating",
+                value=f"`{driver_rating.current_elo}` ELO\n🏆 Peak: `{driver_rating.peak_elo}`",
+                inline=True
+            )
+            
+            # Rank and Performance
+            rank_text = f"#{user_rank}" if user_rank else "Unranked"
+            embed.add_field(
+                name="🏁 Performance",
+                value=f"Rank: **{rank_text}**\nMatches: **{driver_rating.matches_played}**\nWin Rate: **{driver_rating.win_rate:.1f}%**",
+                inline=True
+            )
+            
+            # Skill breakdown
+            elo_trend = driver_rating.get_elo_trend()
+            trend_emoji = "📈" if elo_trend > 0 else "📉" if elo_trend < 0 else "📊"
+            
+            embed.add_field(
+                name="📊 Analysis",
+                value=f"{trend_emoji} 30-day trend: `{elo_trend:+d}`\n🎯 Wins: **{driver_rating.wins}** | Losses: **{driver_rating.losses}**",
+                inline=False
+            )
+            
+            # Set user avatar as thumbnail
+            embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            
+            embed.set_footer(text=f"🏁 Last updated: {driver_rating.last_updated.strftime('%Y-%m-%d %H:%M')} UTC")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in rating command: {e}")
+            await interaction.followup.send("❌ Error retrieving rating information.", ephemeral=True)
+    
+    def _get_skill_color(self, skill_level: str) -> discord.Color:
+        """Get color based on skill level."""
+        colors = {
+            "Legendary": discord.Color.from_rgb(255, 215, 0),  # Gold
+            "Master": discord.Color.from_rgb(192, 192, 192),   # Silver
+            "Expert": discord.Color.from_rgb(205, 127, 50),    # Bronze
+            "Advanced": discord.Color.purple(),
+            "Intermediate": discord.Color.blue(),
+            "Novice": discord.Color.green(),
+            "Beginner": discord.Color.light_grey()
+        }
+        return colors.get(skill_level, discord.Color.blue())
+    
+    @app_commands.command(name="elo-leaderboard", description="🏆 Show the ELO rating leaderboard")
+    async def show_elo_leaderboard(self, interaction: discord.Interaction):
+        """Show the ELO rating leaderboard."""
+        await interaction.response.defer()
+        
+        try:
+            # Get top ratings
+            top_ratings = await self.bot.driver_rating_repository.find_top_ratings(15)
+            
+            if not top_ratings:
+                embed = discord.Embed(
+                    title="🏁 ELO Leaderboard",
+                    description="No ratings yet! Submit lap times to start earning ELO points.",
+                    color=discord.Color.blue()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            embed = discord.Embed(
+                title="🏆 ELO Rating Leaderboard",
+                description="**Top drivers ranked by skill rating**",
+                color=discord.Color.gold()
+            )
+            
+            # Build leaderboard text
+            leaderboard_text = ""
+            medals = ["🥇", "🥈", "🥉"]
+            
+            for i, rating in enumerate(top_ratings):
+                position_icon = medals[i] if i < 3 else f"`{i+1}.`"
+                skill_emoji = self._get_skill_emoji(rating.skill_level)
+                
+                leaderboard_text += (
+                    f"{position_icon} **{rating.username}** {skill_emoji}\n"
+                    f"     `{rating.current_elo}` ELO • {rating.win_rate:.1f}% WR ({rating.matches_played} matches)\n\n"
+                )
+            
+            embed.add_field(
+                name="🏁 Top Drivers",
+                value=leaderboard_text,
+                inline=False
+            )
+            
+            # Add statistics
+            all_ratings = await self.bot.driver_rating_repository.find_all_ratings()
+            if all_ratings:
+                avg_elo = sum(r.current_elo for r in all_ratings) / len(all_ratings)
+                embed.add_field(
+                    name="📊 League Stats",
+                    value=f"Active drivers: **{len(all_ratings)}**\nAverage ELO: **{avg_elo:.0f}**",
+                    inline=True
+                )
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in elo leaderboard command: {e}")
+            await interaction.followup.send("❌ Error retrieving ELO leaderboard.", ephemeral=True)
+    
+    def _get_skill_emoji(self, skill_level: str) -> str:
+        """Get emoji for skill level."""
+        emojis = {
+            "Legendary": "👑",
+            "Master": "🔥",
+            "Expert": "⚡",
+            "Advanced": "🎯",
+            "Intermediate": "📈",
+            "Novice": "🌱",
+            "Beginner": "🏁"
+        }
+        return emojis.get(skill_level, "🏁")
+    
     @app_commands.command(name="help", description="📚 Show all available F1 Lap Bot commands and features")
     async def show_help(self, interaction: discord.Interaction):
         """Show comprehensive help with all available commands and features."""
@@ -1180,9 +1330,21 @@ class LapCommands(commands.Cog):
                 "`/lap rivalries` - ⚔️ Epic driver rivalries & head-to-head stats"
             )
             
+            # ELO Rating Commands
+            elo_commands = (
+                "`/lap rating` - 🧠 Your AI-powered ELO skill rating\n"
+                "`/lap elo-leaderboard` - 🏆 ELO rating leaderboard"
+            )
+            
             embed.add_field(
                 name="📊 Analytics Commands",
                 value=analytics_commands,
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🧠 ELO Rating Commands",
+                value=elo_commands,
                 inline=False
             )
             
@@ -1278,6 +1440,8 @@ async def setup(bot):
         lap_group.add_command(cog.show_analytics)
         lap_group.add_command(cog.show_heatmap)
         lap_group.add_command(cog.show_rivalries)
+        lap_group.add_command(cog.show_driver_rating)
+        lap_group.add_command(cog.show_elo_leaderboard)
         lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
         

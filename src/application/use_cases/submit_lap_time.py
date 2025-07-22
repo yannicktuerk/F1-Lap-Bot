@@ -1,16 +1,31 @@
 """Use case for submitting a new lap time."""
 from typing import Optional, Tuple
 from ...domain.entities.lap_time import LapTime
+from ...domain.entities.driver_rating import DriverRating
 from ...domain.interfaces.lap_time_repository import LapTimeRepository
+from ...domain.interfaces.driver_rating_repository import DriverRatingRepository
 from ...domain.value_objects.time_format import TimeFormat
 from ...domain.value_objects.track_name import TrackName
+from .update_elo_ratings import UpdateEloRatingsUseCase
 
 
 class SubmitLapTimeUseCase:
     """Application service for submitting lap times with business logic."""
     
-    def __init__(self, lap_time_repository: LapTimeRepository):
+    def __init__(
+        self, 
+        lap_time_repository: LapTimeRepository,
+        driver_rating_repository: Optional[DriverRatingRepository] = None
+    ):
         self._repository = lap_time_repository
+        self._driver_rating_repository = driver_rating_repository
+        self._update_elo_use_case = None
+        
+        # Initialize ELO update use case if rating repository is provided
+        if driver_rating_repository:
+            self._update_elo_use_case = UpdateEloRatingsUseCase(
+                driver_rating_repository, lap_time_repository
+            )
     
     async def execute(
         self, 
@@ -75,5 +90,13 @@ class SubmitLapTimeUseCase:
         
         # Save the lap time
         await self._repository.save(lap_time)
+        
+        # Update ELO ratings if the feature is enabled
+        if self._update_elo_use_case and is_personal_best:
+            try:
+                await self._update_elo_use_case.execute(lap_time)
+            except Exception as e:
+                # Log error but don't fail the lap submission
+                print(f"Warning: ELO rating update failed: {e}")
         
         return lap_time, is_personal_best, is_overall_best

@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 from typing import Optional
 from ...infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
+from ...infrastructure.persistence.sqlite_driver_rating_repository import SQLiteDriverRatingRepository
 from ...application.use_cases.submit_lap_time import SubmitLapTimeUseCase
 
 
@@ -24,7 +25,11 @@ class F1LapBot(commands.Bot):
         
         # Dependencies (Clean Architecture)
         self.lap_time_repository = SQLiteLapTimeRepository()
-        self.submit_lap_time_use_case = SubmitLapTimeUseCase(self.lap_time_repository)
+        self.driver_rating_repository = SQLiteDriverRatingRepository()
+        self.submit_lap_time_use_case = SubmitLapTimeUseCase(
+            self.lap_time_repository, 
+            self.driver_rating_repository
+        )
         
         # Configuration
         self.leaderboard_channel_id: Optional[int] = None

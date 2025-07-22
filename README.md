@@ -59,6 +59,17 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 - **Driver Rivalries**  
   Head-to-Head Vergleiche zwischen Fahrern mit Rivalry-Rankings und Dominanz-Statistiken
 
+### 🧠 ELO Rating System
+
+- **AI-Powered Skill Assessment**  
+  Intelligente Fahrerbeurteilung basierend auf ELO-Rating mit virtuellen Time-Trial Matches
+
+- **Dynamic Skill Levels**  
+  7 Skill-Kategorien von Beginner bis Legendary mit automatischem Ranking-Update
+
+- **Competitive Leaderboard**  
+  Globale ELO-Rangliste mit Win-Rate und Match-Statistiken
+
 ### 🎮 Verfügbare Commands
 
 #### 🏁 Basis Commands
@@ -80,6 +91,12 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 | `/lap analytics` | Advanced Analytics Dashboard |
 | `/lap heatmap` | Strecken-Popularität und Performance Heatmap |
 | `/lap rivalries` | Driver Rivalries und Head-to-Head Statistiken |
+
+#### 🧠 ELO Rating Commands
+| Command | Beschreibung |
+|---------|-------------|
+| `/lap rating` | AI-powered ELO Skill Rating und Analyse |
+| `/lap elo-leaderboard` | Globale ELO-Rangliste der Top-Fahrer |
 
 #### ⚙️ Admin Commands
 | Command | Beschreibung |
@@ -184,6 +201,17 @@ CREATE TABLE lap_times (
     is_overall_best BOOLEAN DEFAULT 0,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE driver_ratings (
+    user_id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    current_elo INTEGER NOT NULL DEFAULT 1000,
+    peak_elo INTEGER NOT NULL DEFAULT 1000,
+    matches_played INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    last_updated TEXT NOT NULL
+);
 ```
 
 ## 🧪 Testing
@@ -211,6 +239,11 @@ python -m pytest tests/ --cov=src/
 - **Testing Pyramid:** 70% Unit / 20% Integration / 10% E2E
 
 ## 🔄 Changelog
+
+### v1.3.2 (2025-07-22)
+- 🧠 **NEW:** ELO-basiertes Fahrer-Bewertungssystem implementiert
+- 🏆 **NEW:** ELO-Rangliste mit Skill-Level-Anzeige
+- 💬 **NEW:** Slash-Commands `/lap rating` und `/lap elo-leaderboard`
 
 ### v1.3.1 (2025-07-22)
 - 🚫 **NEW:** Validation verhindert das Einreichen langsamerer Rundenzeiten
