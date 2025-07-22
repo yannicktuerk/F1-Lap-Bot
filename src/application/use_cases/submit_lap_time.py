@@ -57,6 +57,11 @@ class SubmitLapTimeUseCase:
         user_best = await self._repository.find_user_best_by_track(user_id, track_name)
         is_personal_best = user_best is None or lap_time.is_faster_than(user_best)
         
+        # Validate that the new time is faster than the current personal best
+        if user_best is not None and not lap_time.is_faster_than(user_best):
+            time_difference = lap_time.get_time_difference_to(user_best)
+            raise ValueError(f"Your submitted time ({lap_time.time_format}) is {time_difference:.3f}s slower than your current best time ({user_best.time_format}) on this track. You can only submit faster times!")
+        
         # Check if this is an overall best
         overall_best = await self._repository.find_best_by_track(track_name)
         is_overall_best = overall_best is None or lap_time.is_faster_than(overall_best)

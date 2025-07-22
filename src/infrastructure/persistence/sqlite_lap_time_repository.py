@@ -302,3 +302,22 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             rows = await cursor.fetchall()
             
             return [self._row_to_lap_time(row) for row in rows]
+    
+    async def find_specific_lap_time(self, user_id: str, track: TrackName, total_milliseconds: int) -> Optional[LapTime]:
+        """Find a specific lap time for a user on a track with exact time match."""
+        await self._ensure_table_exists()
+        
+        async with aiosqlite.connect(self._database_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("""
+                SELECT * FROM lap_times 
+                WHERE user_id = ? AND track_key = ? AND total_milliseconds = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (user_id, track.key, total_milliseconds))
+            row = await cursor.fetchone()
+            
+            if row is None:
+                return None
+            
+            return self._row_to_lap_time(row)

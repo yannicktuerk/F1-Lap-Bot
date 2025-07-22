@@ -5,6 +5,7 @@ from discord.ext import commands
 from discord import app_commands
 from typing import Optional
 from ...domain.value_objects.track_name import TrackName
+from ...domain.value_objects.time_format import TimeFormat
 
 
 class LapCommands(commands.Cog):
@@ -429,9 +430,12 @@ class LapCommands(commands.Cog):
             print(f"❌ Error in track info command: {e}")
             await interaction.followup.send("❌ Error retrieving track information.", ephemeral=True)
     
-    @app_commands.command(name="delete", description="Delete your personal best time for a track")
-    @app_commands.describe(track="Track name to delete your best time from")
-    async def delete_lap_time(self, interaction: discord.Interaction, track: str):
+    @app_commands.command(name="delete", description="Delete a specific lap time for a track")
+    @app_commands.describe(
+        track="Track name to delete time from",
+        time="Exact lap time to delete (format: 1:23.456 or 83.456)"
+    )
+    async def delete_lap_time(self, interaction: discord.Interaction, track: str, time: str):
         """Delete user's personal best time for a specific track."""
         await interaction.response.defer()
         
@@ -439,13 +443,17 @@ class LapCommands(commands.Cog):
             track_obj = TrackName(track)
             user_id = str(interaction.user.id)
             
-            # Get user's best time for this track
-            user_best = await self.bot.lap_time_repository.find_user_best_by_track(user_id, track_obj)
+            # Convert time string to total milliseconds for exact matching
+            time_format = TimeFormat(time)
+            total_milliseconds = time_format.total_milliseconds
+
+            # Find the specific lap time the user wants to delete
+            lap_time = await self.bot.lap_time_repository.find_specific_lap_time(user_id, track_obj, total_milliseconds)
             
-            if not user_best:
+            if not lap_time:
                 embed = discord.Embed(
                     title="❌ No Time Found",
-                    description=f"You don't have any recorded times for **{track_obj.display_name}**.",
+                    description=f"No recorded time of `{time}` found for you on **{track_obj.display_name}**.",
                     color=discord.Color.orange()
                 )
                 embed.set_thumbnail(url=track_obj.flag_url)
@@ -453,18 +461,18 @@ class LapCommands(commands.Cog):
                 return
             
             # Delete the time from repository
-            success = await self.bot.lap_time_repository.delete_lap_time(user_best.lap_id)
+            success = await self.bot.lap_time_repository.delete_lap_time(lap_time.lap_id)
             
             if success:
                 embed = discord.Embed(
                     title="✅ Time Deleted Successfully",
-                    description=f"Your personal best time has been removed from **{track_obj.display_name}**.",
+                    description=f"The time `{lap_time.time_format}` has been removed from **{track_obj.display_name}**.",
                     color=discord.Color.green()
                 )
                 
                 embed.add_field(
                     name="Deleted Time",
-                    value=f"`{user_best.time_format}`",
+                    value=f"`{lap_time.time_format}`",
                     inline=True
                 )
                 
@@ -485,7 +493,7 @@ class LapCommands(commands.Cog):
             else:
                 embed = discord.Embed(
                     title="❌ Delete Failed",
-                    description="Failed to delete your time. Please try again later.",
+                    description="Failed to delete the specified time. Please try again later.",
                     color=discord.Color.red()
                 )
                 await interaction.followup.send(embed=embed, ephemeral=True)
@@ -1156,7 +1164,7 @@ class LapCommands(commands.Cog):
                 "`/lap tracks` - List all available tracks\n"
                 "`/lap info <track>` - Detailed track information\n"
                 "`/lap challenge` - Get a random track challenge\n"
-                "`/lap delete <track>` - Delete your personal best"
+                "`/lap delete <track> <time>` - Delete specific lap time"
             )
             
             embed.add_field(
@@ -1239,7 +1247,7 @@ class LapCommands(commands.Cog):
             )
             
             embed.set_footer(
-                text="🏁 F1 Lap Bot v1.2.0 • Built for speed and analytics • Ready to race?"
+                text="🏁 F1 Lap Bot v1.3.0 • Built for speed and analytics • Ready to race?"
             )
             
             await interaction.followup.send(embed=embed)
