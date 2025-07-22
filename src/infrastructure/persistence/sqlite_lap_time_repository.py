@@ -127,17 +127,14 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             return self._row_to_lap_time(row)
     
     async def find_top_by_track(self, track: TrackName, limit: int = 10) -> List[LapTime]:
-        """Find the top lap times for a specific track."""
+        """Find the top lap times for a specific track (absolute fastest times, not best per user)."""
         await self._ensure_table_exists()
         
         async with aiosqlite.connect(self._database_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("""
-                SELECT * FROM (
-                    SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY total_milliseconds ASC) as rn
-                    FROM lap_times 
-                    WHERE track_key = ?
-                ) WHERE rn = 1
+                SELECT * FROM lap_times 
+                WHERE track_key = ?
                 ORDER BY total_milliseconds ASC 
                 LIMIT ?
             """, (track.key, limit))

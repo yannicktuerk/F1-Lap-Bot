@@ -212,6 +212,13 @@ python -m pytest tests/ --cov=src/
 
 ## 🔄 Changelog
 
+### v1.3.0 (2025-07-22)
+- 🏆 **BREAKING:** Leaderboard zeigt jetzt die 10 absolut schnellsten Zeiten (nicht mehr beste pro User)
+- 🎯 **NEW:** Ein User kann theoretisch mehrere Einträge in den Top 10 haben
+- 📊 **NEW:** Zeit-Abstände zwischen den Positionen werden übersichtlich angezeigt
+- ⚡ **IMPROVED:** Präzisere Leaderboard-Performance durch Optimierung der Datenbankabfragen
+- 🏁 **ENHANCED:** Bessere Visualisierung von dominanten Performances einzelner Fahrer
+
 ### v1.2.0 (2025-07-21)
 - 🔥 **NEW:** Advanced Analytics Dashboard mit Hall of Fame, Speed Demons, Track Difficulty
 - 🗺️ **NEW:** Track Heatmap mit Popularitäts- und Performance-Analyse

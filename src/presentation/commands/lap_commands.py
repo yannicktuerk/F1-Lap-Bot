@@ -178,7 +178,18 @@ class LapCommands(commands.Cog):
                 
                 for i, lap_time in enumerate(top_times):
                     position_icon = medals[i] if i < 3 else f"`{i+1}.`"
-                    leaderboard_text += f"{position_icon} **{lap_time.username}** - `{lap_time.time_format}`\n"
+                    
+                    # Calculate gap to next position (or to leader if first position)
+                    gap_text = ""
+                    if i == 0:
+                        gap_text = " 🏆"  # Leader indicator
+                    elif i < len(top_times):
+                        # Calculate gap to the position above (faster time)
+                        previous_time = top_times[i-1]
+                        gap_seconds = lap_time.time_format.total_seconds - previous_time.time_format.total_seconds
+                        gap_text = f" `(+{gap_seconds:.3f}s)`"
+                    
+                    leaderboard_text += f"{position_icon} **{lap_time.username}** - `{lap_time.time_format}`{gap_text}\n"
                 
                 embed.add_field(
                     name="🏆 Leaderboard",
