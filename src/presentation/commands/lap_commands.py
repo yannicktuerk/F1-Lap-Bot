@@ -1647,12 +1647,50 @@ class LapCommands(commands.Cog):
         return emojis.get(skill_level, "🏁")
     
     @app_commands.command(name="reset", description="🗑️ Reset all lap times and data (Admin only)")
+    @app_commands.describe(password="Security password required for database reset")
     @commands.has_permissions(administrator=True)
-    async def reset_database(self, interaction: discord.Interaction):
-        """Reset all lap times and data - ADMIN ONLY."""
+    async def reset_database(self, interaction: discord.Interaction, password: str):
+        """Reset all lap times and data - ADMIN ONLY with password protection."""
         await interaction.response.defer(ephemeral=True)  # Make this ephemeral for security
         
         try:
+            import os
+            
+            # Get reset password from environment variable
+            correct_password = os.getenv('RESET_PASSWORD')
+            
+            # Check if password is configured
+            if not correct_password:
+                embed = discord.Embed(
+                    title="🔧 Configuration Error",
+                    description="Reset password is not configured in environment variables.\n\n"
+                               "Please add `RESET_PASSWORD=your_secure_password` to your `.env` file.",
+                    color=discord.Color.orange()
+                )
+                embed.add_field(
+                    name="🔒 Security Note",
+                    value="Database reset requires a secure password for safety.",
+                    inline=False
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # Verify password
+            if password != correct_password:
+                embed = discord.Embed(
+                    title="🔒 Access Denied",
+                    description="**Incorrect password provided.**\n\n"
+                               "Database reset requires the correct security password.",
+                    color=discord.Color.red()
+                )
+                embed.add_field(
+                    name="🛡️ Security Alert",
+                    value=f"Failed reset attempt by {interaction.user.mention}\n"
+                          f"Time: {interaction.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC",
+                    inline=False
+                )
+                await interaction.followup.send(embed=embed)
+                return
             # Create confirmation embed
             embed = discord.Embed(
                 title="⚠️ DANGER ZONE - DATABASE RESET",
