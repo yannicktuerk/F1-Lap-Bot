@@ -321,3 +321,16 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 return None
             
             return self._row_to_lap_time(row)
+    
+    async def delete_all_user_times_by_track(self, user_id: str, track: TrackName) -> int:
+        """Delete all lap times for a user on a specific track. Returns number of deleted records."""
+        await self._ensure_table_exists()
+        
+        async with aiosqlite.connect(self._database_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM lap_times WHERE user_id = ? AND track_key = ?", 
+                (user_id, track.key)
+            )
+            await db.commit()
+            
+            return cursor.rowcount

@@ -518,6 +518,162 @@ class LapCommands(commands.Cog):
             print(f"❌ Error in delete command: {e}")
             await interaction.followup.send("❌ Error deleting time.", ephemeral=True)
     
+    @app_commands.command(name="deleteall", description="Delete ALL your lap times for a specific track")
+    @app_commands.describe(track="Track name to delete all times from")
+    async def delete_all_lap_times(self, interaction: discord.Interaction, track: str):
+        """Delete all lap times for a user on a specific track."""
+        await interaction.response.defer()
+        
+        try:
+            track_obj = TrackName(track)
+            user_id = str(interaction.user.id)
+            
+            # Get user's current times on this track for confirmation
+            user_times = await self.bot.lap_time_repository.find_user_times_by_track(user_id, track_obj)
+            
+            if not user_times:
+                embed = discord.Embed(
+                    title="❌ No Times Found",
+                    description=f"You have no recorded times on **{track_obj.display_name}**.",
+                    color=discord.Color.orange()
+                )
+                embed.set_thumbnail(url=track_obj.flag_url)
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Show confirmation with times to be deleted
+            times_list = "\n".join([f"• `{time.time_format}` ({time.created_at.strftime('%Y-%m-%d')})" for time in user_times[:10]])
+            if len(user_times) > 10:
+                times_list += f"\n... and {len(user_times) - 10} more times"
+            
+            # Create confirmation embed
+            embed = discord.Embed(
+                title="⚠️ Confirm Deletion",
+                description=f"**Are you sure you want to delete ALL {len(user_times)} lap times on {track_obj.display_name}?**\n\n"
+                           f"This action cannot be undone!",
+                color=discord.Color.orange()
+            )
+            
+            embed.add_field(
+                name="Times to be deleted:",
+                value=times_list,
+                inline=False
+            )
+            
+            embed.add_field(
+                name="Track",
+                value=f"🌍 **{track_obj.display_name}**\n({track_obj.country})",
+                inline=True
+            )
+            
+            embed.set_image(url=track_obj.image_url)
+            embed.set_thumbnail(url=track_obj.flag_url)
+            
+            # Add confirmation buttons
+            class ConfirmView(discord.ui.View):
+                def __init__(self, timeout=60):
+                    super().__init__(timeout=timeout)
+                    self.confirmed = None
+                
+                @discord.ui.button(label="✅ Yes, Delete All", style=discord.ButtonStyle.danger)
+                async def confirm_delete(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                    if button_interaction.user.id != interaction.user.id:
+                        await button_interaction.response.send_message("❌ Only the original user can confirm this action.", ephemeral=True)
+                        return
+                    
+                    self.confirmed = True
+                    self.stop()
+                    await button_interaction.response.defer()
+                
+                @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
+                async def cancel_delete(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+                    if button_interaction.user.id != interaction.user.id:
+                        await button_interaction.response.send_message("❌ Only the original user can confirm this action.", ephemeral=True)
+                        return
+                    
+                    self.confirmed = False
+                    self.stop()
+                    await button_interaction.response.defer()
+            
+            view = ConfirmView()
+            message = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            
+            # Wait for user confirmation
+            await view.wait()
+            
+            if view.confirmed is None:  # Timeout
+                embed.title = "⏰ Confirmation Timeout"
+                embed.description = "Deletion cancelled due to timeout."
+                embed.color = discord.Color.light_grey()
+                await message.edit(embed=embed, view=None)
+                return
+            
+            if not view.confirmed:  # User cancelled
+                embed.title = "❌ Deletion Cancelled"
+                embed.description = "Your lap times remain safe!"
+                embed.color = discord.Color.green()
+                await message.edit(embed=embed, view=None)
+                return
+            
+            # User confirmed - proceed with deletion
+            deleted_count = await self.bot.lap_time_repository.delete_all_user_times_by_track(user_id, track_obj)
+            
+            if deleted_count > 0:
+                embed = discord.Embed(
+                    title="🗑️ All Times Deleted Successfully",
+                    description=f"**{deleted_count} lap times** have been removed from **{track_obj.display_name}**.",
+                    color=discord.Color.red()
+                )
+                
+                embed.add_field(
+                    name="Deleted Times",
+                    value=f"**{deleted_count}** lap times",
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="Track",
+                    value=f"🌍 **{track_obj.display_name}**\n({track_obj.country})",
+                    inline=True
+                )
+                
+                embed.set_image(url=track_obj.image_url)
+                embed.set_thumbnail(url=track_obj.flag_url)
+                embed.set_footer(text="You can start fresh with new lap times!")
+                
+                await message.edit(embed=embed, view=None)
+                
+                # Update leaderboard after deletion
+                await self.bot.update_leaderboard(track)
+                
+            else:
+                embed = discord.Embed(
+                    title="❌ Delete Failed",
+                    description="Failed to delete lap times. Please try again later.",
+                    color=discord.Color.red()
+                )
+                await message.edit(embed=embed, view=None)
+                
+        except ValueError as e:
+            error_embed = discord.Embed(
+                title="❌ Invalid Track",
+                description=str(e),
+                color=discord.Color.red()
+            )
+            
+            examples = ["monaco", "silverstone", "spa", "monza", "cota"]
+            error_embed.add_field(
+                name="Example Tracks",
+                value=f"`{', '.join(examples)}`\n\nUse `/lap tracks` to see all available tracks.",
+                inline=False
+            )
+            
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            
+        except Exception as e:
+            print(f"❌ Error in deleteall command: {e}")
+            await interaction.followup.send("❌ Error deleting times.", ephemeral=True)
+    
     @app_commands.command(name="tracks", description="List all available tracks")
     async def list_tracks(self, interaction: discord.Interaction):
         """List all available F1 tracks."""
@@ -1314,7 +1470,8 @@ class LapCommands(commands.Cog):
                 "`/lap tracks` - List all available tracks\n"
                 "`/lap info <track>` - Detailed track information\n"
                 "`/lap challenge` - Get a random track challenge\n"
-                "`/lap delete <track> <time>` - Delete specific lap time"
+                "`/lap delete <track> <time>` - Delete specific lap time\n"
+                "`/lap deleteall <track>` - Delete ALL your times for a track"
             )
             
             embed.add_field(
@@ -1435,6 +1592,7 @@ async def setup(bot):
         lap_group.add_command(cog.random_challenge)
         lap_group.add_command(cog.track_info)
         lap_group.add_command(cog.delete_lap_time)
+        lap_group.add_command(cog.delete_all_lap_times)
         lap_group.add_command(cog.list_tracks)
         lap_group.add_command(cog.show_global_leaderboard)
         lap_group.add_command(cog.show_analytics)
