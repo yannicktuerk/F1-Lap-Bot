@@ -245,6 +245,14 @@ python -m pytest tests/ --cov=src/
 
 ## 🔄 Changelog
 
+### v1.6.0 (2025-07-24)
+- 🔧 **CRITICAL FIX:** Username consistency issue completely resolved
+- ✅ **ENHANCED:** New lap time submissions now consistently use custom usernames set with `/lap username`
+- 🏗️ **ARCHITECTURE:** Improved user display name resolution with fallback system
+- 🛡️ **SECURITY:** Added bot detection to prevent bots from submitting lap times
+- 📊 **QUALITY:** Database schema updated with `is_bot` field for better data integrity
+- 🎯 **UX:** Seamless username experience - once set, always consistent across all submissions
+
 ### v1.5.0 (2025-07-24)
 - 👤 **NEW:** `/lap username <name>` command for changing display names
 - 🔄 **ENHANCED:** Username validation with length (2-32 chars) and character checks

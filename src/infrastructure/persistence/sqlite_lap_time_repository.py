@@ -31,9 +31,17 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                     total_milliseconds INTEGER NOT NULL,
                     is_personal_best BOOLEAN DEFAULT 0,
                     is_overall_best BOOLEAN DEFAULT 0,
+                    is_bot BOOLEAN DEFAULT 0,
                     created_at TEXT NOT NULL
                 )
             """)
+            
+            # Add is_bot column to existing tables (migration)
+            try:
+                await db.execute("ALTER TABLE lap_times ADD COLUMN is_bot BOOLEAN DEFAULT 0")
+                await db.commit()
+            except:
+                pass  # Column already exists
             
             # Create indexes for better query performance
             await db.execute("CREATE INDEX IF NOT EXISTS idx_track_time ON lap_times(track_key, total_milliseconds)")
@@ -53,8 +61,8 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 INSERT INTO lap_times (
                     lap_id, user_id, username, track_key,
                     time_minutes, time_seconds, time_milliseconds, total_milliseconds,
-                    is_personal_best, is_overall_best, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_personal_best, is_overall_best, is_bot, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 lap_id,
                 lap_time.user_id,
@@ -66,6 +74,7 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 lap_time.time_format.total_milliseconds,
                 lap_time.is_personal_best,
                 lap_time.is_overall_best,
+                False,  # is_bot - always False since we prevent bots from submitting
                 lap_time.created_at.isoformat()
             ))
             await db.commit()

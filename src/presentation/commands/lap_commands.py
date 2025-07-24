@@ -23,6 +23,26 @@ class LapCommands(commands.Cog):
         else:
             return f"{total_seconds:.3f}s"
     
+    async def _get_user_display_name(self, user_id: str, fallback_name: str) -> str:
+        """Get the user's stored custom username, or fall back to Discord display name."""
+        try:
+            # Try to get any existing lap time to extract the stored username
+            user_lap_times = await self.bot.lap_time_repository.find_all_by_user(user_id)
+            if user_lap_times:
+                # Use the username from the most recent lap time (should be consistent)
+                return user_lap_times[0].username
+            
+            # If no lap times exist, try to get from driver rating
+            driver_rating = await self.bot.driver_rating_repository.find_by_user_id(user_id)
+            if driver_rating:
+                return driver_rating.username
+            
+            # Fall back to Discord display name for new users
+            return fallback_name
+        except:
+            # If anything fails, use the fallback
+            return fallback_name
+    
     @app_commands.command(name="submit", description="Submit your lap time")
     @app_commands.describe(
         time="Your lap time (format: 1:23.456 or 83.456)",
@@ -37,11 +57,27 @@ class LapCommands(commands.Cog):
         """Submit a new lap time."""
         await interaction.response.defer()
         
+        # Prevent bot from submitting lap times
+        if interaction.user.bot:
+            error_embed = discord.Embed(
+                title="❌ Bot Restricted",
+                description="Bots cannot submit lap times.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+            return
+        
         try:
+            # Get the user's preferred display name (custom or Discord fallback)
+            user_display_name = await self._get_user_display_name(
+                str(interaction.user.id), 
+                interaction.user.display_name
+            )
+            
             # Execute use case
             lap_time, is_personal_best, is_overall_best = await self.bot.submit_lap_time_use_case.execute(
                 user_id=str(interaction.user.id),
-                username=interaction.user.display_name,
+                username=user_display_name,
                 time_string=time,
                 track_string=track
             )
@@ -2058,7 +2094,7 @@ class LapCommands(commands.Cog):
             )
             
             embed.set_footer(
-                text="🏁 F1 Lap Bot v1.3.0 • Built for speed and analytics • Ready to race?"
+                text="🏁 F1 Lap Bot v1.6.0 • Username consistency fixed • Ready to race?"
             )
             
             await interaction.followup.send(embed=embed)
