@@ -129,6 +129,7 @@ In Leaderboards werden verschiedene Symbole für Positionen verwendet:
 |---------|-------------|
 | `/lap rating` | AI-powered ELO Skill Rating und Analyse |
 | `/lap elo-leaderboard` | Globale ELO-Rangliste der Top-Fahrer |
+| `/lap elo-rank-help` | Vollständige ELO-Ranking-System-Anleitung |
 
 #### ⚙️ Admin Commands
 | Command | Beschreibung |

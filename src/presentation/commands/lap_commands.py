@@ -1682,6 +1682,113 @@ class LapCommands(commands.Cog):
         }
         return emojis.get(skill_level, "🏁")
     
+    @app_commands.command(name="elo-rank-help", description="📊 Show the complete ELO ranking system and symbols")
+    async def show_elo_rank_help(self, interaction: discord.Interaction):
+        """Display comprehensive ELO ranking system information."""
+        await interaction.response.defer()
+        
+        try:
+            embed = discord.Embed(
+                title="🏆 ELO Ranking System Guide",
+                description="**Complete guide to skill levels, symbols, and progression**",
+                color=discord.Color.gold()
+            )
+            
+            # Skill Levels Table
+            rank_info = (
+                "```\n"
+                "ELO Range   | Rank         | Symbol | Description\n"
+                "------------|--------------|--------|---------------------------\n"
+                "2200+       | Legendary    | 👑     | Absolute Elite Masters\n"
+                "2000-2199   | Master       | 🔥     | Expert-Class Drivers\n"
+                "1800-1999   | Expert       | ⚡     | Advanced High-Skill\n"
+                "1600-1799   | Advanced     | 🎯     | Experienced Racers\n"
+                "1400-1599   | Intermediate | 📈     | Steady Improvement\n"
+                "1200-1399   | Novice       | 🌱     | Learning Phase\n"
+                "800-1199    | Beginner     | 🏁     | First Steps\n"
+                "```"
+            )
+            
+            embed.add_field(
+                name="🎯 Skill Levels & ELO Ranges",
+                value=rank_info,
+                inline=False
+            )
+            
+            # Leaderboard Symbols
+            symbols_info = (
+                "**Position Medals:**\n"
+                "🥇 1st Place (Gold Medal)\n"
+                "🥈 2nd Place (Silver Medal)\n"
+                "🥉 3rd Place (Bronze Medal)\n\n"
+                "**Special Indicators:**\n"
+                "👑 Most Dominant Driver (Highest Win-Rate)\n"
+                "🏆 Top 3 in Categories\n\n"
+                "**Rivalry Intensity:**\n"
+                "🔥🔥🔥 Intensive Rivalries (Very Close)\n"
+                "🔥🔥 Strong Rivalries (Close Competition)\n"
+                "🔥 Active Rivalries (Still Interesting)"
+            )
+            
+            embed.add_field(
+                name="🏅 Leaderboard Symbols",
+                value=symbols_info,
+                inline=False
+            )
+            
+            # How ELO Works
+            elo_info = (
+                "• **ELO starts at 1500** for all new drivers\n"
+                "• **Virtual matches** are simulated based on lap times\n"
+                "• **Beating faster drivers** gives more ELO points\n"
+                "• **Consistency** across multiple tracks matters\n"
+                "• **Peak ELO** is tracked separately from current\n"
+                "• **Minimum ELO** floor is 800 points"
+            )
+            
+            embed.add_field(
+                name="⚡ How ELO Rating Works",
+                value=elo_info,
+                inline=False
+            )
+            
+            # Progression Tips
+            tips_info = (
+                "🎯 **Focus on consistency** across different tracks\n"
+                "🏁 **Submit times regularly** to maintain active rating\n"
+                "⚡ **Challenge yourself** on harder tracks for bigger gains\n"
+                "📈 **Learn from faster drivers** in your skill bracket\n"
+                "🔥 **Engage in rivalries** to push your limits"
+            )
+            
+            embed.add_field(
+                name="💡 Progression Tips",
+                value=tips_info,
+                inline=False
+            )
+            
+            # Related Commands
+            commands_info = (
+                "`/lap rating` - View your current ELO and analysis\n"
+                "`/lap elo-leaderboard` - See the top-ranked drivers\n"
+                "`/lap submit` - Submit lap times to earn ELO\n"
+                "`/lap rivalries` - Check your head-to-head battles"
+            )
+            
+            embed.add_field(
+                name="🔗 Related Commands",
+                value=commands_info,
+                inline=False
+            )
+            
+            embed.set_footer(text="🏁 Your ELO reflects your speed and consistency across all F1 tracks!")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            print(f"❌ Error in elo-rank-help command: {e}")
+            await interaction.followup.send("❌ Error displaying ELO ranking information.", ephemeral=True)
+    
     @app_commands.command(name="username", description="🏷️ Change your display name in the bot")
     @app_commands.describe(name="Your new display name for lap times and leaderboards")
     async def update_username(
@@ -2129,6 +2236,7 @@ async def setup(bot):
         lap_group.add_command(cog.show_rivalries)
         lap_group.add_command(cog.show_driver_rating)
         lap_group.add_command(cog.show_elo_leaderboard)
+        lap_group.add_command(cog.show_elo_rank_help)
         lap_group.add_command(cog.update_username)
         lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
