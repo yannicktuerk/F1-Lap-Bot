@@ -70,6 +70,35 @@ Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Adva
 - **Competitive Leaderboard**  
   Globale ELO-Rangliste mit Win-Rate und Match-Statistiken
 
+#### 🏆 Skill Levels & Ranks
+
+Das ELO-System verwendet 7 verschiedene Skill-Level mit entsprechenden Symbolen:
+
+| ELO Range | Rank | Symbol | Beschreibung |
+|-----------|------|--------|--------------|
+| 2200+ | **Legendary** | 👑 | Absolute Elite - Meister der Rennstrecke |
+| 2000-2199 | **Master** | 🔥 | Expertenklasse - Konsistent schnelle Zeiten |
+| 1800-1999 | **Expert** | ⚡ | Fortgeschrittene Fahrer mit hohem Skill |
+| 1600-1799 | **Advanced** | 🎯 | Erfahrene Fahrer mit gutem Verständnis |
+| 1400-1599 | **Intermediate** | 📈 | Solide Grundlagen, stetige Verbesserung |
+| 1200-1399 | **Novice** | 🌱 | Lernphase - Erste Erfahrungen sammeln |
+| 800-1199 | **Beginner** | 🏁 | Einsteiger - Erste Schritte auf der Strecke |
+
+**💡 Pro-Tip:** Dein ELO steigt durch bessere Lap-Times im Vergleich zu anderen Fahrern!
+
+#### 🥇 Leaderboard Symbole
+
+In Leaderboards werden verschiedene Symbole für Positionen verwendet:
+
+- **🥇** - 1. Platz (Gold)
+- **🥈** - 2. Platz (Silber)  
+- **🥉** - 3. Platz (Bronze)
+- **👑** - Dominantester Fahrer (höchste Win-Rate)
+- **🏆** - Top 3 in verschiedenen Kategorien
+- **🔥🔥🔥** - Intensive Rivalries (sehr ausgeglichen)
+- **🔥🔥** - Starke Rivalries (nah beieinander)
+- **🔥** - Rivalries (trotzdem interessant)
+
 ### 🎮 Verfügbare Commands
 
 #### 🏁 Basis Commands
