@@ -154,6 +154,24 @@ class SQLiteDriverRatingRepository(DriverRatingRepository):
             
             return None
     
+    async def update_username(self, user_id: str, new_username: str) -> bool:
+        """Update the username for a driver rating."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE driver_ratings SET username = ? WHERE user_id = ?",
+                    (new_username, user_id)
+                )
+                conn.commit()
+                
+                # Return True if at least one row was updated
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            print(f"❌ Error updating username in driver ratings: {e}")
+            return False
+    
     async def delete_by_user_id(self, user_id: str) -> bool:
         """Delete a driver rating by user ID."""
         with sqlite3.connect(self.db_path) as conn:

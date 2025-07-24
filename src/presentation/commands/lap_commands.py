@@ -1646,6 +1646,110 @@ class LapCommands(commands.Cog):
         }
         return emojis.get(skill_level, "🏁")
     
+    @app_commands.command(name="username", description="🏷️ Change your display name in the bot")
+    @app_commands.describe(name="Your new display name for lap times and leaderboards")
+    async def update_username(
+        self,
+        interaction: discord.Interaction,
+        name: str
+    ):
+        """Update user's display name across all bot data."""
+        await interaction.response.defer()
+        
+        try:
+            user_id = str(interaction.user.id)
+            
+            # Validate username length and content
+            if len(name) < 2:
+                embed = discord.Embed(
+                    title="❌ Name Too Short",
+                    description="Your display name must be at least 2 characters long.",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            if len(name) > 32:
+                embed = discord.Embed(
+                    title="❌ Name Too Long",
+                    description="Your display name cannot exceed 32 characters.",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Check for invalid characters (basic validation)
+            invalid_chars = ['@', '#', '`', '\n', '\r']
+            if any(char in name for char in invalid_chars):
+                embed = discord.Embed(
+                    title="❌ Invalid Characters",
+                    description="Display name cannot contain: @ # ` or line breaks",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Get current username for comparison
+            current_times = await self.bot.lap_time_repository.find_all_by_user(user_id)
+            old_username = current_times[0].username if current_times else interaction.user.display_name
+            
+            # Execute the username update
+            results = await self.bot.update_username_use_case.execute(user_id, name)
+            
+            # Create response embed
+            embed = discord.Embed(
+                title="🏷️ Username Updated Successfully!",
+                description=f"Your display name has been changed from **{old_username}** to **{name}**",
+                color=discord.Color.green()
+            )
+            
+            # Add update details
+            if results['total_lap_times_affected'] > 0:
+                embed.add_field(
+                    name="📊 Data Updated",
+                    value=f"• **{results['total_lap_times_affected']}** lap times updated\n"
+                          f"• ELO rating {'✅' if results['driver_rating_updated'] else '❌'} updated\n"
+                          f"• Leaderboards will show your new name",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="💡 First Time Setup",
+                    value="Your username is now set! Future lap times will use this name.\n"
+                          "Submit your first lap time with `/lap submit <time> <track>`",
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="🔄 Effect",
+                value="Your new name will appear on:\n"
+                      "• All leaderboards\n"
+                      "• Personal statistics\n"
+                      "• ELO rankings\n"
+                      "• History logs",
+                inline=True
+            )
+            
+            # Set user avatar as thumbnail
+            embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            
+            embed.set_footer(text="💡 You can change your username anytime with /lap username")
+            
+            await interaction.followup.send(embed=embed)
+            
+            # Update leaderboards to reflect new name
+            if results['total_lap_times_affected'] > 0:
+                await self.bot.update_global_leaderboard()
+            
+        except Exception as e:
+            print(f"❌ Error in username command: {e}")
+            embed = discord.Embed(
+                title="❌ Update Failed",
+                description="An error occurred while updating your username. Please try again later.",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+    
     @app_commands.command(name="reset", description="🗑️ Reset all lap times and data (Admin only)")
     @app_commands.describe(password="Security password required for database reset")
     @commands.has_permissions(administrator=True)
@@ -1989,6 +2093,7 @@ async def setup(bot):
         lap_group.add_command(cog.show_rivalries)
         lap_group.add_command(cog.show_driver_rating)
         lap_group.add_command(cog.show_elo_leaderboard)
+        lap_group.add_command(cog.update_username)
         lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
         lap_group.add_command(cog.reset_database)

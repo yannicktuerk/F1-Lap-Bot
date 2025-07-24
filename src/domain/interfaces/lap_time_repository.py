@@ -129,6 +129,20 @@ class LapTimeRepository(ABC):
         pass
     
     @abstractmethod
+    async def update_username(self, user_id: str, new_username: str) -> bool:
+        """
+        Update the username for all lap times belonging to a user.
+        
+        Args:
+            user_id: The Discord user ID
+            new_username: The new username to set
+            
+        Returns:
+            True if username was updated successfully, False otherwise
+        """
+        pass
+    
+    @abstractmethod
     async def reset_all_data(self) -> bool:
         """
         Reset all lap time data in the database.

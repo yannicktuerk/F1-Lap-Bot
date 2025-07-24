@@ -6,6 +6,7 @@ from typing import Optional
 from ...infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
 from ...infrastructure.persistence.sqlite_driver_rating_repository import SQLiteDriverRatingRepository
 from ...application.use_cases.submit_lap_time import SubmitLapTimeUseCase
+from ...application.use_cases.update_username import UpdateUsernameUseCase
 
 
 class F1LapBot(commands.Bot):
@@ -28,6 +29,10 @@ class F1LapBot(commands.Bot):
         self.driver_rating_repository = SQLiteDriverRatingRepository()
         self.submit_lap_time_use_case = SubmitLapTimeUseCase(
             self.lap_time_repository, 
+            self.driver_rating_repository
+        )
+        self.update_username_use_case = UpdateUsernameUseCase(
+            self.lap_time_repository,
             self.driver_rating_repository
         )
         

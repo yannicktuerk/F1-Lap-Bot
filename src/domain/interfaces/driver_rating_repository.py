@@ -34,6 +34,11 @@ class DriverRatingRepository(ABC):
         pass
     
     @abstractmethod
+    async def update_username(self, user_id: str, new_username: str) -> bool:
+        """Update the username for a driver rating."""
+        pass
+    
+    @abstractmethod
     async def delete_by_user_id(self, user_id: str) -> bool:
         """Delete a driver rating by user ID."""
         pass

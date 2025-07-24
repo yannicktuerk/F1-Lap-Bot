@@ -335,6 +335,25 @@ class SQLiteLapTimeRepository(LapTimeRepository):
             
             return cursor.rowcount
     
+    async def update_username(self, user_id: str, new_username: str) -> bool:
+        """Update the username for all lap times belonging to a user."""
+        await self._ensure_table_exists()
+        
+        try:
+            async with aiosqlite.connect(self._database_path) as db:
+                cursor = await db.execute(
+                    "UPDATE lap_times SET username = ? WHERE user_id = ?",
+                    (new_username, user_id)
+                )
+                await db.commit()
+                
+                # Return True if at least one row was updated
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            print(f"❌ Error updating username: {e}")
+            return False
+    
     async def reset_all_data(self) -> bool:
         """Reset all lap time data in the database."""
         try:
