@@ -217,6 +217,8 @@ class F1TelemetryListener:
                 self.process_lap_data(payload)
             elif packet_id == PACKET_EVENT and len(payload) >= 4:
                 self.process_event_data(payload)
+            elif packet_id == PACKET_TIME_TRIAL and len(payload) >= 50:
+                self.process_time_trial_data(payload)
                 
         except struct.error as e:
             # Only show error for first few packets to avoid spam
@@ -410,6 +412,69 @@ class F1TelemetryListener:
                 
         except Exception as e:
             print(f"❌ Error processing event data: {e}")
+    
+    def process_time_trial_data(self, data: bytes):
+        """Process Time Trial packet - this confirms we're in Time Trial mode!"""
+        try:
+            # According to spec, Time Trial packet is 101 bytes total (3 x TimeTrialDataSet)
+            if len(data) < 72:  # Need at least one complete TimeTrialDataSet (24 bytes each)
+                return
+            
+            # TimeTrialDataSet structure (24 bytes each):
+            # uint8 m_carIdx
+            # uint8 m_teamId  
+            # uint32 m_lapTimeInMS
+            # uint32 m_sector1TimeInMS
+            # uint32 m_sector2TimeInMS
+            # uint32 m_sector3TimeInMS
+            # uint8 m_tractionControl
+            # uint8 m_gearboxAssist
+            # uint8 m_antiLockBrakes
+            # uint8 m_equalCarPerformance
+            # uint8 m_customSetup
+            # uint8 m_valid
+            
+            # Parse Player Session Best (first dataset)
+            player_data = struct.unpack('<BBIIIIBBBBB', data[:24])
+            car_idx = player_data[0]
+            team_id = player_data[1] 
+            lap_time_ms = player_data[2]
+            sector1_ms = player_data[3]
+            sector2_ms = player_data[4]
+            sector3_ms = player_data[5]
+            traction_control = player_data[6]
+            gearbox_assist = player_data[7]
+            anti_lock_brakes = player_data[8]
+            equal_car_performance = player_data[9]
+            custom_setup = player_data[10]
+            valid = player_data[11]
+            
+            print(f"\n🏆 TIME TRIAL PACKET DETECTED!")
+            print(f"🚗 Car Index: {car_idx}, Team: {team_id}")
+            
+            if valid and lap_time_ms > 0:
+                print(f"⏱️  Session Best: {self.format_time(lap_time_ms)}")
+                print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
+                print(f"🎮 Assists: TC:{traction_control}, Gearbox:{gearbox_assist}, ABS:{anti_lock_brakes}")
+                
+                # If we don't have session info yet, create it for Time Trial
+                if not self.session_info or not self.session_info.is_time_trial:
+                    # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
+                    self.session_info = SessionInfo(
+                        session_type=10,  # Time Trial
+                        track_id=-1,     # Unknown from this packet
+                        session_uid=0,
+                        is_time_trial=True,
+                        track_name="time_trial"  # Generic name until we get track info
+                    )
+                    
+                    print(f"✅ TIME TRIAL MODE CONFIRMED!")
+                    print(f"🎯 Ready to capture lap times!\n")
+            else:
+                print(f"⚠️  No valid session best yet")
+                
+        except Exception as e:
+            print(f"❌ Error processing Time Trial data: {e}")
     
     def validate_lap(self, lap_time_ms: int, current_lap_invalid: bool, lap_valid_flags: int) -> bool:
         """Validate if a lap is legitimate and should be submitted."""
