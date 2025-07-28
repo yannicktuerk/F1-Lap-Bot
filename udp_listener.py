@@ -80,7 +80,7 @@ class F1TelemetryListener:
             6: "imola",
             7: "monaco",
             8: "canada", 
-            9: "austria",
+            9: "unknown_9",   # TBD - was assumed Austria but 17 is Austria
             10: "silverstone",
             11: "hungary",
             12: "spa",
@@ -88,12 +88,13 @@ class F1TelemetryListener:
             14: "monza",
             15: "singapore",
             16: "japan",
-            17: "qatar",
+            17: "austria",   # CONFIRMED: Track ID 17 is Austria (Red Bull Ring)
             18: "usa",
             19: "mexico",
             20: "brazil",
             21: "las-vegas",
-            22: "abu-dhabi"
+            22: "abu-dhabi",
+            23: "qatar"      # Qatar is likely a higher track ID
         }
     
     def start(self):
