@@ -250,35 +250,16 @@ class F1TelemetryListener:
             if len(data) < 10:
                 return
             
-            # Debug: Show first 20 bytes of session data to understand structure
-            if len(data) >= 20:
-                hex_data = data[:20].hex()
-                print(f"🔍 Session data (first 20 bytes): {hex_data}")
-                
-                # Try different offsets to find session type and track ID
-                for offset in range(min(10, len(data)-1)):
-                    try:
-                        session_type = data[offset]
-                        track_id = data[offset + 1] if offset + 1 < len(data) else 0
-                        
-                        session_type_names = {
-                            1: "Practice 1", 2: "Practice 2", 3: "Practice 3", 4: "Short Practice",
-                            5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
-                            9: "OSQ", 10: "Time Trial", 12: "Race", 13: "Race 2"
-                        }
-                        
-                        # Check if this looks like a valid session type
-                        if session_type in session_type_names or session_type == 10:  # 10 = Time Trial
-                            session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
-                            track_name = self.track_mapping.get(track_id, f"track_{track_id}")
-                            print(f"🎮 Offset {offset}: Session: {session_name}, Track: {track_name} (Type: {session_type}, Track ID: {track_id})")
-                        
-                    except Exception:
-                        continue
+            # Based on analysis, session data seems to start after a 5-byte prefix (3c000000ff)
+            # Most promising offsets were 5, 6, and 7
+            session_offset = 5  # Skip the 3c000000ff prefix
             
-            # Parse session data (original attempt)
-            session_type = struct.unpack('<B', data[0:1])[0]
-            track_id = struct.unpack('<B', data[1:2])[0]  # Changed to unsigned byte
+            if len(data) < session_offset + 2:
+                return
+            
+            # Parse session data at the discovered offset
+            session_type = data[session_offset]
+            track_id = data[session_offset + 1]
             
             # Debug output
             session_type_names = {
@@ -286,32 +267,42 @@ class F1TelemetryListener:
                 5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
                 9: "OSQ", 10: "Time Trial", 12: "Race", 13: "Race 2"
             }
-            session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
-            track_name = self.track_mapping.get(track_id, f"track_{track_id}")
-            print(f"🎮 Original parsing: Session: {session_name}, Track: {track_name} (ID: {track_id})")
             
-            # Check if this is a time trial session
-            is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
-            
-            if is_time_trial and (not self.session_info or self.session_info.track_id != track_id):
+            # Only show session info when it's a recognized session type
+            if session_type in session_type_names:
+                session_name = session_type_names[session_type]
                 track_name = self.track_mapping.get(track_id, f"track_{track_id}")
+                print(f"🎮 Session: {session_name}, Track: {track_name} (Type: {session_type}, Track ID: {track_id})")
                 
-                self.session_info = SessionInfo(
-                    session_type=session_type,
-                    track_id=track_id,
-                    session_uid=0,  # Would need to parse from header
-                    is_time_trial=is_time_trial,
-                    track_name=track_name
-                )
+                # Check if this is a time trial session
+                is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
                 
-                print(f"🏁 Time Trial session detected!")
-                print(f"📍 Track: {track_name.title()} (ID: {track_id})")
-                print(f"🎮 Session Type: Time Trial")
-                print("✅ Ready to capture lap times!\n")
+                if is_time_trial and (not self.session_info or self.session_info.track_id != track_id):
+                    self.session_info = SessionInfo(
+                        session_type=session_type,
+                        track_id=track_id,
+                        session_uid=0,  # Would need to parse from header
+                        is_time_trial=is_time_trial,
+                        track_name=track_name
+                    )
+                    
+                    print(f"🏁 Time Trial session detected!")
+                    print(f"📍 Track: {track_name.title()} (ID: {track_id})")
+                    print(f"🎮 Session Type: Time Trial")
+                    print("✅ Ready to capture lap times!\n")
+                    
+                elif not is_time_trial and self.session_info and self.session_info.is_time_trial:
+                    print("🚫 Session changed - no longer Time Trial mode")
+                    self.session_info = None
+            else:
+                # For debugging unknown session types, show hex data
+                if not hasattr(self, '_session_debug_count'):
+                    self._session_debug_count = 0
                 
-            elif not is_time_trial and self.session_info and self.session_info.is_time_trial:
-                print("🚫 Session changed - no longer Time Trial mode")
-                self.session_info = None
+                if self._session_debug_count < 3:
+                    hex_data = data[:20].hex() if len(data) >= 20 else data.hex()
+                    print(f"🔍 Unknown session type {session_type} at offset {session_offset}, hex: {hex_data}")
+                    self._session_debug_count += 1
                 
         except Exception as e:
             print(f"❌ Error processing session data: {e}")
