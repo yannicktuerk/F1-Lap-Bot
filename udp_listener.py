@@ -143,8 +143,9 @@ class F1TelemetryListener:
             
             self.player_car_index = player_car_index
             
-            # Debug output
-            print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes, Format: {packet_format}, Year: 20{game_year}")
+            # Only show important packet types
+            if packet_id in [1, 2, 3, 13]:  # Only log session, lap, event, time trial
+                pass  # Remove debug spam
             
             # Create mutable buffer and parse specific packet type
             mutable_buffer = bytearray(data)
@@ -252,14 +253,19 @@ class F1TelemetryListener:
             try:
                 lap_time_ms = player_lap_data.last_lap_time_in_ms
                 
-                # Calculate sector times from minutes and milliseconds parts
+                # Calculate sector times - sector times might be 0 if lap just completed
                 sector1_ms = (player_lap_data.sector1_time_minutes_part * 60000) + player_lap_data.sector1_time_ms_part
                 sector2_ms = (player_lap_data.sector2_time_minutes_part * 60000) + player_lap_data.sector2_time_ms_part
                 
-                # Sector 3 isn't directly available, but we can calculate it
-                # sector3_ms = lap_time_ms - sector1_ms - sector2_ms (if lap_time_ms > 0)
-                if lap_time_ms > 0 and sector1_ms > 0 and sector2_ms > 0:
-                    sector3_ms = lap_time_ms - sector1_ms - sector2_ms
+                # Calculate sector 3 from total lap time
+                if lap_time_ms > 0:
+                    if sector1_ms > 0 and sector2_ms > 0:
+                        sector3_ms = lap_time_ms - sector1_ms - sector2_ms
+                    else:
+                        # Fallback: Use average sector times if individual sectors are 0
+                        sector1_ms = sector1_ms or int(lap_time_ms * 0.33)
+                        sector2_ms = sector2_ms or int(lap_time_ms * 0.33) 
+                        sector3_ms = lap_time_ms - sector1_ms - sector2_ms
                 else:
                     sector3_ms = 0
                 
