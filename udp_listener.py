@@ -132,30 +132,45 @@ class F1TelemetryListener:
     def process_packet(self, data: bytes):
         """Process incoming UDP packet using f1-packets library."""
         try:
-            # Create a mutable buffer for f1-packets library
-            # The library requires a writable buffer, so we convert bytes to bytearray
-            mutable_buffer = bytearray(data)
-            packet = Packet.from_buffer(mutable_buffer)
-            
-            if packet is None:
+            # Parse the packet header first to determine packet type
+            if len(data) < 29:  # Minimum header size for F1 2025
                 return
             
-            # Get header information
-            header = packet.header
-            self.player_car_index = header.m_playerCarIndex
+            # Parse header manually to get packet ID
+            import struct
+            header_data = struct.unpack('<HBBBBBQffIBB', data[:29])
+            packet_format, game_year, game_major_version, game_minor_version, packet_version, packet_id, session_uid, session_time, frame_identifier, overall_frame_identifier, player_car_index, secondary_player_car_index = header_data
+            
+            self.player_car_index = player_car_index
             
             # Debug output
-            print(f"📦 Packet ID: {header.m_packetId}, Size: {len(data)} bytes, Format: {header.m_packetFormat}, Year: {header.m_gameYear}")
+            print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes, Format: {packet_format}, Year: 20{game_year}")
             
-            # Process different packet types using official classes
-            if isinstance(packet, PacketSessionData):
-                self.process_session_data_official(packet)
-            elif isinstance(packet, PacketLapData):
-                self.process_lap_data_official(packet)
-            elif isinstance(packet, PacketEventData):
-                self.process_event_data_official(packet)
-            elif isinstance(packet, PacketTimeTrialData):
-                self.process_time_trial_data_official(packet)
+            # Create mutable buffer and parse specific packet type
+            mutable_buffer = bytearray(data)
+            
+            try:
+                # Parse based on packet ID
+                if packet_id == 1:  # Session data
+                    packet = PacketSessionData.from_buffer(mutable_buffer)
+                    self.process_session_data_official(packet, session_uid)
+                elif packet_id == 2:  # Lap data  
+                    packet = PacketLapData.from_buffer(mutable_buffer)
+                    self.process_lap_data_official(packet)
+                elif packet_id == 3:  # Event data
+                    packet = PacketEventData.from_buffer(mutable_buffer)
+                    self.process_event_data_official(packet)
+                elif packet_id == 13:  # Time Trial data
+                    packet = PacketTimeTrialData.from_buffer(mutable_buffer)
+                    self.process_time_trial_data_official(packet)
+                # Ignore other packet types for now
+                    
+            except Exception as parse_error:
+                if not hasattr(self, '_packet_parse_errors'):
+                    self._packet_parse_errors = {}
+                if packet_id not in self._packet_parse_errors:
+                    print(f"⚠️  Could not parse packet type {packet_id}: {parse_error}")
+                    self._packet_parse_errors[packet_id] = True
                 
         except Exception as e:
             # Only show error for first few packets to avoid spam
@@ -171,18 +186,17 @@ class F1TelemetryListener:
                 print("⚠️  Suppressing further parsing errors (enable debug mode for more details)...")
                 self._error_count += 1
     
-    def process_session_data_official(self, packet: PacketSessionData):
+    def process_session_data_official(self, packet: PacketSessionData, session_uid: int):
         """Process session data packet using f1-packets official classes."""
         try:
-            session_data = packet.m_sessionData
-            
-            weather = session_data.m_weather
-            track_temperature = session_data.m_trackTemperature
-            air_temperature = session_data.m_airTemperature
-            total_laps = session_data.m_totalLaps
-            track_length = session_data.m_trackLength
-            session_type = session_data.m_sessionType
-            track_id = session_data.m_trackId
+            # Access fields directly from packet (not m_sessionData)
+            weather = packet.weather
+            track_temperature = packet.track_temperature
+            air_temperature = packet.air_temperature
+            total_laps = packet.total_laps
+            track_length = packet.track_length
+            session_type = packet.session_type
+            track_id = packet.track_id
             
             print(f"🌡️ Weather: {weather}, Track Temp: {track_temperature}°C, Air Temp: {air_temperature}°C")
             print(f"🏁 Session Type: {session_type}, Track ID: {track_id}, Total Laps: {total_laps}")
@@ -205,7 +219,7 @@ class F1TelemetryListener:
                 self.session_info = SessionInfo(
                     session_type=session_type,
                     track_id=track_id,
-                    session_uid=packet.header.m_sessionUID,
+                    session_uid=session_uid,  # Use parsed session_uid from header
                     is_time_trial=True,
                     track_name=track_name
                 )
