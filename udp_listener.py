@@ -262,18 +262,17 @@ class F1TelemetryListener:
             
             # Extract timing data based on official F1 2025 specification
             try:
-                # Official field names from specification (without m_ prefix in f1-packets)
-                lap_time_ms = getattr(player_lap_data, 'm_lastLapTimeInMS', 0)
-                current_lap_time_ms = getattr(player_lap_data, 'm_currentLapTimeInMS', 0)
+                # Official field names from f1-packets library (without m_ prefix)
+                lap_time_ms = getattr(player_lap_data, 'last_lap_time_in_ms', 0)
+                current_lap_time_ms = getattr(player_lap_data, 'current_lap_time_in_ms', 0)
                 
-                # Sector times according to specification: 
-                # m_sector1TimeMSPart + m_sector1TimeMinutesPart * 60000
-                s1_ms_part = getattr(player_lap_data, 'm_sector1TimeMSPart', 0)
-                s1_min_part = getattr(player_lap_data, 'm_sector1TimeMinutesPart', 0)
+                # Sector times: combine minutes and milliseconds parts
+                s1_ms_part = getattr(player_lap_data, 'sector1_time_ms_part', 0)
+                s1_min_part = getattr(player_lap_data, 'sector1_time_minutes_part', 0)
                 sector1_ms = (s1_min_part * 60000) + s1_ms_part
                 
-                s2_ms_part = getattr(player_lap_data, 'm_sector2TimeMSPart', 0)
-                s2_min_part = getattr(player_lap_data, 'm_sector2TimeMinutesPart', 0)
+                s2_ms_part = getattr(player_lap_data, 'sector2_time_ms_part', 0)
+                s2_min_part = getattr(player_lap_data, 'sector2_time_minutes_part', 0)
                 sector2_ms = (s2_min_part * 60000) + s2_ms_part
                 
                 # Calculate sector 3 from total lap time
@@ -283,13 +282,13 @@ class F1TelemetryListener:
                     sector3_ms = 0
                 
                 # Lap validity and status information
-                current_lap_invalid = getattr(player_lap_data, 'm_currentLapInvalid', False)
-                penalties = getattr(player_lap_data, 'm_penalties', 0)
-                car_position = getattr(player_lap_data, 'm_carPosition', 0)
-                current_lap_num = getattr(player_lap_data, 'm_currentLapNum', 0)
-                pit_status = getattr(player_lap_data, 'm_pitStatus', 0)
-                driver_status = getattr(player_lap_data, 'm_driverStatus', 0)
-                result_status = getattr(player_lap_data, 'm_resultStatus', 0)
+                current_lap_invalid = getattr(player_lap_data, 'current_lap_invalid', False)
+                penalties = getattr(player_lap_data, 'penalties', 0)
+                car_position = getattr(player_lap_data, 'car_position', 0)
+                current_lap_num = getattr(player_lap_data, 'current_lap_num', 0)
+                pit_status = getattr(player_lap_data, 'pit_status', 0)
+                driver_status = getattr(player_lap_data, 'driver_status', 0)
+                result_status = getattr(player_lap_data, 'result_status', 0)
                 
                 # Comprehensive debug output
                 print(f"🎯 LAP DATA DEBUG:")
@@ -313,7 +312,7 @@ class F1TelemetryListener:
                 
                 # Validate lap
                 is_valid_lap = self.validate_lap(
-                    lap_time_ms, current_lap_invalid, lap_valid_bit_flags
+                    lap_time_ms, current_lap_invalid, penalties
                 )
                 
                 if is_valid_lap:
