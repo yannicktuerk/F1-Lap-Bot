@@ -277,11 +277,29 @@ python -m pytest tests/ --cov=src/
 
 ### Automatische Rundenzeit-Erfassung aus F1 2025
 
+> **⚠️ Wichtig:** Auch wenn der Discord Bot zentral auf dem Server läuft, muss **jeder Spieler** das UDP-Listener Script auf seinem eigenen PC installieren und ausführen!
+
 Der Bot kann automatisch Rundenzeiten direkt aus F1 2025 (Time Trial Mode) über UDP Telemetrie erfassen.
 
-#### 🚀 Setup-Anleitung
+#### 🚀 Setup-Anleitung für Spieler
 
-**Schritt 1: F1 2025 Telemetrie aktivieren**
+**Schritt 1: Repository klonen oder UDP-Script herunterladen**
+```bash
+# Option A: Gesamtes Repository klonen
+git clone [repository-url]
+cd f1-lap-bot
+
+# Option B: Nur udp_listener.py herunterladen
+# Lade udp_listener.py von GitHub herunter
+```
+
+**Schritt 2: Python-Abhängigkeiten installieren**
+```bash
+# Erforderliche Pakete installieren
+pip install socket struct json requests
+```
+
+**Schritt 3: F1 2025 Telemetrie aktivieren**
 1. Starte F1 2025
 2. Gehe zu **Einstellungen** → **Telemetrie**
 3. Aktiviere **UDP Telemetrie Output**
@@ -289,20 +307,17 @@ Der Bot kann automatisch Rundenzeiten direkt aus F1 2025 (Time Trial Mode) über
 5. IP-Adresse: `127.0.0.1` (für lokalen Betrieb)
 6. Format: **2025** (neuestes Format)
 
-**Schritt 2: Telemetrie-Listener starten**
+**Schritt 4: UDP-Listener auf deinem PC starten**
 ```bash
-# Terminal 1: Telemetrie-Listener starten
+# Terminal: UDP-Listener starten (muss auf dem gleichen PC wie F1 2025 laufen!)
 python udp_listener.py
-
-# Terminal 2: Discord Bot starten (parallel)
-python src/main.py
 ```
 
-**Schritt 3: Time Trial Session starten**
+**Schritt 5: Time Trial Session starten**
 1. Wähle **Time Trial** im F1 2025 Hauptmenü
 2. Wähle eine Strecke (z.B. Monaco)
 3. Fahre gültige Runden
-4. **Rundenzeiten werden automatisch erfasst!**
+4. **Rundenzeiten werden automatisch an den zentralen Bot gesendet!**
 
 #### ✅ Was wird erfasst?
 

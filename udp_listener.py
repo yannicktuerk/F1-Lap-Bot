@@ -9,6 +9,8 @@ import struct
 import asyncio
 import threading
 import time
+import json
+import requests
 from typing import Optional, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass
@@ -81,14 +83,20 @@ class LapData:
 class F1TelemetryListener:
     """F1 2025 UDP Telemetry Listener with validation."""
     
-    def __init__(self, port: int = 20777, bot_integration: bool = False):
+    def __init__(self, port: int = 20777, bot_integration: bool = False, 
+                 discord_user_id: str = None, bot_api_url: str = None):
         self.port = port
         self.bot_integration = bot_integration
+        self.discord_user_id = discord_user_id  # Discord User ID für Bot-Integration
+        self.bot_api_url = bot_api_url or "http://localhost:8080/api/telemetry/submit"
         self.socket = None
         self.running = False
         self.session_info: Optional[SessionInfo] = None
         self.last_lap_time = 0
         self.player_car_index = 0  # Usually 0 for the player
+        
+        # Personal best times per track (in milliseconds)
+        self.personal_bests: Dict[str, int] = {}
         
         # Track mapping (F1 2025 track IDs to our track names)
         self.track_mapping = {
@@ -309,16 +317,35 @@ class F1TelemetryListener:
         lap_time_str = self.format_time(lap_time_ms)
         track_name = self.session_info.track_name
         
+        # Check if this is a personal best time
+        current_pb = self.personal_bests.get(track_name)
+        is_personal_best = current_pb is None or lap_time_ms < current_pb
+        
         print(f"🏆 Valid lap completed!")
         print(f"⏱️  Time: {lap_time_str}")
         print(f"📍 Track: {track_name.title()}")
         print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
         
-        if self.bot_integration:
-            self.submit_to_bot(lap_time_str, track_name)
+        if is_personal_best:
+            improvement = ""
+            if current_pb:
+                improvement_ms = current_pb - lap_time_ms
+                improvement = f" (🚀 -{self.format_time(improvement_ms)} improvement!)"
+            else:
+                improvement = " (🎉 First time on this track!)"
+            
+            print(f"🆕 Personal Best{improvement}")
+            self.personal_bests[track_name] = lap_time_ms
+            
+            if self.bot_integration:
+                self.submit_to_bot(lap_time_str, track_name)
+            else:
+                print("💡 Bot integration disabled - lap time not submitted automatically")
+                print(f"📝 To submit manually: /lap submit {lap_time_str} {track_name}")
         else:
-            print("💡 Bot integration disabled - lap time not submitted automatically")
-            print(f"📝 To submit manually: /lap submit {lap_time_str} {track_name}")
+            slower_by_ms = lap_time_ms - current_pb
+            print(f"⏱️  Not a personal best (+{self.format_time(slower_by_ms)} slower than PB: {self.format_time(current_pb)})")
+            print("❌ Lap time not submitted (only personal bests are sent to Discord)")
         
         print("-" * 60)
     
