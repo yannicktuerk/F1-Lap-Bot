@@ -143,9 +143,18 @@ class F1TelemetryListener:
             
             self.player_car_index = player_car_index
             
-            # Debug: Show all packet types temporarily to find session data
-            if packet_id not in [0, 6, 7, 11, 12]:  # Skip common spam packets
+            # Debug: Show all packet types and analyze their content
+            if packet_id not in [6, 7]:  # Only skip telemetry and car status spam
                 print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes")
+                
+                # Try to extract useful info from unknown packets
+                if packet_id not in [1, 2, 3, 13] and len(data) > 29:
+                    try:
+                        # Try to find track info in other packets
+                        raw_data = data[29:50] if len(data) > 50 else data[29:]
+                        print(f"🔍 Raw data sample: {raw_data.hex()[:40]}...")
+                    except:
+                        pass
             
             # Create mutable buffer and parse specific packet type
             mutable_buffer = bytearray(data)
