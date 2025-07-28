@@ -9,17 +9,17 @@ from aiohttp import web, WSMsgType
 from aiohttp.web import Request, Response
 import aiohttp_cors
 
-from src.application.use_cases.submit_lap_time_use_case import SubmitLapTimeUseCase
-from src.domain.value_objects.lap_time import LapTime
-from src.domain.value_objects.track import TrackName
-from src.infrastructure.persistence.sqlite_lap_time_repository import SqliteLapTimeRepository
+from src.application.use_cases.submit_lap_time import SubmitLapTimeUseCase
+from src.domain.value_objects.time_format import TimeFormat
+from src.domain.value_objects.track_name import TrackName
+from src.infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
 import discord
 
 
 class TelemetryAPI:
     """HTTP API server for receiving telemetry data."""
     
-    def __init__(self, lap_time_repository: SqliteLapTimeRepository, host: str = "0.0.0.0", port: int = 8080, discord_bot=None):
+    def __init__(self, lap_time_repository: SQLiteLapTimeRepository, host: str = "0.0.0.0", port: int = 8080, discord_bot=None):
         self.host = host
         self.port = port
         self.lap_time_repository = lap_time_repository
@@ -117,16 +117,12 @@ class TelemetryAPI:
             username = await self._get_discord_username(user_id)
             
             try:
-                # Parse time and track
-                lap_time = LapTime.from_string(time_str)
-                track_name = TrackName.from_string(track_str)
-                
                 # Submit the lap time using the use case
-                result = self.submit_use_case.execute(
+                lap_time, is_personal_best, is_overall_best = await self.submit_use_case.execute(
                     user_id=user_id,
                     username=username,
-                    time=lap_time,
-                    track=track_name
+                    time_string=time_str,
+                    track_string=track_str
                 )
                 
                 # Log successful submission
@@ -137,9 +133,9 @@ class TelemetryAPI:
                 response_data = {
                     'status': 'success',
                     'message': 'Lap time submitted successfully',
-                    'lap_id': result.lap_id,
-                    'is_personal_best': result.is_personal_best,
-                    'is_overall_best': result.is_overall_best,
+                    'lap_id': lap_time.lap_id,
+                    'is_personal_best': is_personal_best,
+                    'is_overall_best': is_overall_best,
                     'time': time_str,
                     'track': track_str,
                     'user_id': user_id,
@@ -147,9 +143,9 @@ class TelemetryAPI:
                     'received_at': datetime.now().isoformat()
                 }
                 
-                if result.is_personal_best:
+                if is_personal_best:
                     response_data['improvement'] = 'Personal Best!'
-                if result.is_overall_best:
+                if is_overall_best:
                     response_data['improvement'] = 'Overall Best!'
                 
                 return web.json_response(response_data, status=200)
@@ -185,7 +181,8 @@ class TelemetryAPI:
         """Status check endpoint with database info."""
         try:
             # Get some basic stats from the database
-            total_laps = len(self.lap_time_repository.get_all())
+            # TODO: Implement get_all() method or use async method
+            total_laps = 0  # Placeholder
             
             return web.json_response({
                 'status': 'operational',
@@ -203,6 +200,7 @@ class TelemetryAPI:
                 'database': 'error',
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
+            }, status=503)
     
     async def _get_discord_username(self, user_id: str) -> str:
         """Get Discord username from user ID, with fallback to anonymous name."""

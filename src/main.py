@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.presentation.bot.f1_bot import F1LapBot
 from src.presentation.api.telemetry_api import TelemetryAPI
-from src.infrastructure.persistence.sqlite_lap_time_repository import SqliteLapTimeRepository
+from src.infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
 
 
 def validate_environment() -> bool:
@@ -85,7 +85,7 @@ async def main():
     api_port = int(os.getenv('API_PORT', '8080'))
     
     # Create shared repository instance
-    lap_time_repository = SqliteLapTimeRepository()
+    lap_time_repository = SQLiteLapTimeRepository()
     
     # Create Discord bot
     bot = F1LapBot()
