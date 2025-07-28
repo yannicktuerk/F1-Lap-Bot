@@ -143,9 +143,9 @@ class F1TelemetryListener:
             
             self.player_car_index = player_car_index
             
-            # Only show important packet types
-            if packet_id in [1, 2, 3, 13]:  # Only log session, lap, event, time trial
-                pass  # Remove debug spam
+            # Debug: Show all packet types temporarily to find session data
+            if packet_id not in [0, 6, 7, 11, 12]:  # Skip common spam packets
+                print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes")
             
             # Create mutable buffer and parse specific packet type
             mutable_buffer = bytearray(data)
@@ -209,6 +209,7 @@ class F1TelemetryListener:
             track_name = self.track_mapping.get(track_id, f"track_{track_id}")
             
             print(f"📍 {session_name} at {track_name.title()} ({track_temperature}°C)")
+            print(f"🔍 DEBUG: session_type={session_type}, track_id={track_id}, track_name={track_name}")
             
             # Check if this is a time trial session
             is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
