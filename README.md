@@ -95,10 +95,10 @@ src/
 - **F1 2025 Game** with UDP telemetry enabled
 - **Discord Bot Token** (see [Discord Bot Setup](#discord-bot-setup))
 
-### 1-Minute Setup
+### Option 1: Full Bot Setup (1-Minute Setup)
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/f1-lap-bot.git
+git clone https://github.com/yannicktuerk/F1-Lap-Bot.git
 cd f1-lap-bot
 
 # Install dependencies
@@ -111,6 +111,24 @@ cp .env.example .env
 # Run the bot
 python src/main.py
 ```
+
+### Option 2: UDP Listener Only (Direct Download)
+
+For users who only need the telemetry listener:
+
+📥 **Direct Download**: [udp_listener.py](https://raw.githubusercontent.com/yannicktuerk/F1-Lap-Bot/main/udp_listener.py)
+
+```bash
+# After downloading udp_listener.py:
+# Install dependencies
+pip install requests f1-packets
+
+# Create config.json (see docs/configuration.md for details)
+# Run listener
+python udp_listener.py
+```
+
+📖 **For detailed setup instructions**: See [Installation Guide](docs/installation.md)
 
 That's it! Your F1 Lap Bot is now running and ready to track lap times! 🎉
 
