@@ -377,6 +377,68 @@ python udp_listener.py --config config_server1.json
 **F: Muss ich `player_name` setzen?**
 A: Nein, ist optional. Wird nur für lokale Anzeige verwendet, nicht in Discord.
 
+---
+
+## 🔧 Für Bot-Administratoren: HTTP-Server Setup
+
+> **🚀 Diese Informationen sind für Personen, die den Discord Bot auf einem Server betreiben!**
+
+Der Discord Bot startet automatisch einen HTTP-Server um Telemetrie-Daten von den UDP-Listenern zu empfangen.
+
+### 🌐 HTTP-Server Konfiguration
+
+**Environment-Variablen in `.env`:**
+```bash
+# HTTP API Server für Telemetrie (optional)
+API_HOST=0.0.0.0    # IP-Adresse (0.0.0.0 = alle Interfaces)
+API_PORT=8080       # Port für HTTP-Server
+```
+
+### 📍 API-Endpunkte
+
+Der Bot stellt folgende HTTP-Endpunkte bereit:
+
+**1. Telemetrie-Daten empfangen:**
+```
+POST /api/telemetry/submit
+Content-Type: application/json
+
+{
+  "user_id": "123456789012345678",
+  "time": "1:23.456",
+  "track": "monaco",
+  "source": "telemetry",
+  "timestamp": "2025-07-28T13:45:00Z"
+}
+```
+
+**2. Health Check:**
+```
+GET /api/health
+```
+
+**3. Status Information:**
+```
+GET /api/status
+```
+
+### 🌍 Öffentliche URL bereitstellen
+
+Um die Bot-API-URL für Spieler bereitzustellen:
+
+**Lokaler Server (z.B. über Router-Portweiterleitung):**
+```
+http://DEINE_IP:8080/api/telemetry/submit
+```
+
+**Cloud-Hosting (Heroku, Railway, etc.):**
+```
+https://dein-f1-bot.herokuapp.com/api/telemetry/submit
+https://f1-lap-bot.railway.app/api/telemetry/submit
+```
+
+**📢 Diese URL teilst du dann mit deinen Spielern für deren `config.json`!**
+
 **Schritt 5: UDP-Listener auf deinem PC starten**
 ```bash
 # Terminal: UDP-Listener starten (muss auf dem gleichen PC wie F1 2025 laufen!)

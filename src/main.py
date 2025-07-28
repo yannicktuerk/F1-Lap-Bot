@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.presentation.bot.f1_bot import F1LapBot
+from src.presentation.api.telemetry_api import TelemetryAPI
+from src.infrastructure.persistence.sqlite_lap_time_repository import SqliteLapTimeRepository
 
 
 def validate_environment() -> bool:
@@ -67,7 +69,7 @@ def validate_environment() -> bool:
 
 
 async def main():
-    """Main function to run the Discord bot."""
+    """Main function to run the Discord bot with HTTP API server."""
     # Load environment variables
     load_dotenv()
     
@@ -78,19 +80,52 @@ async def main():
     # Get Discord token (we know it exists from validation)
     token = os.getenv('DISCORD_TOKEN')
     
-    # Create and run the bot
+    # Get API server configuration
+    api_host = os.getenv('API_HOST', '0.0.0.0')
+    api_port = int(os.getenv('API_PORT', '8080'))
+    
+    # Create shared repository instance
+    lap_time_repository = SqliteLapTimeRepository()
+    
+    # Create Discord bot
     bot = F1LapBot()
     
+    # Create HTTP API server for telemetry
+    api_server = TelemetryAPI(lap_time_repository, host=api_host, port=api_port, discord_bot=bot)
+    
     try:
-        print("🚀 Starting F1 Lap Time Bot...")
-        await bot.start(token)
+        print("🚀 Starting F1 Lap Time Bot with Telemetry API...")
+        
+        # Start HTTP API server first
+        await api_server.start()
+        
+        # Start Discord bot
+        bot_task = asyncio.create_task(bot.start(token))
+        
+        # Wait for bot to finish (or be cancelled)
+        await bot_task
+        
     except KeyboardInterrupt:
         print("\\n⏹️ Bot shutdown requested...")
     except Exception as e:
         print(f"❌ Fatal error: {e}")
     finally:
-        if not bot.is_closed():
-            await bot.close()
+        # Cleanup
+        print("🛑 Shutting down services...")
+        
+        # Stop API server
+        try:
+            await api_server.stop()
+        except Exception as e:
+            print(f"⚠️  Error stopping API server: {e}")
+        
+        # Stop Discord bot
+        try:
+            if not bot.is_closed():
+                await bot.close()
+        except Exception as e:
+            print(f"⚠️  Error stopping Discord bot: {e}")
+            
         print("👋 Bot stopped.")
 
 
