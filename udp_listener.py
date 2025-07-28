@@ -242,18 +242,19 @@ class F1TelemetryListener:
             return
             
         try:
-            # Get lap data for the player's car
-            if self.player_car_index >= len(packet.m_lapData):
+            # Get lap data for the player's car (use correct field name without m_ prefix)
+            if self.player_car_index >= len(packet.lap_data):
                 return
                 
-            player_lap_data = packet.m_lapData[self.player_car_index]
+            player_lap_data = packet.lap_data[self.player_car_index]
             
-            lap_time_ms = player_lap_data.m_lastLapTimeInMS
-            sector1_ms = int(player_lap_data.m_sector1TimeInMS) if player_lap_data.m_sector1TimeInMS > 0 else 0
-            sector2_ms = int(player_lap_data.m_sector2TimeInMS) if player_lap_data.m_sector2TimeInMS > 0 else 0
-            sector3_ms = int(player_lap_data.m_sector3TimeInMS) if player_lap_data.m_sector3TimeInMS > 0 else 0
-            current_lap_invalid = player_lap_data.m_currentLapInvalid
-            lap_valid_flags = player_lap_data.m_lapValidBitFlags
+            # Use correct field names without m_ prefix
+            lap_time_ms = player_lap_data.last_lap_time_in_ms
+            sector1_ms = int(player_lap_data.sector1_time_in_ms) if player_lap_data.sector1_time_in_ms > 0 else 0
+            sector2_ms = int(player_lap_data.sector2_time_in_ms) if player_lap_data.sector2_time_in_ms > 0 else 0
+            sector3_ms = int(player_lap_data.sector3_time_in_ms) if player_lap_data.sector3_time_in_ms > 0 else 0
+            current_lap_invalid = player_lap_data.current_lap_invalid
+            lap_valid_flags = player_lap_data.lap_valid_bit_flags
             
             # Check if this is a completed, valid lap
             if (lap_time_ms > 0 and 
