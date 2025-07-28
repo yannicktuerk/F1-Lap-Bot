@@ -788,6 +788,21 @@ python -X dev src/main.py
 
 ## 📝 Changelog
 
+### Version 2.0.1 - 2025-07-28
+#### 🔧 UDP Telemetry Fixes
+
+**🐛 Bug Fixes:**
+- Fixed UDP telemetry packet parsing with updated f1-packets library imports
+- Replaced deprecated PacketReader with Packet.from_buffer() method
+- Updated import paths for PacketListener and packet types
+- Resolved compatibility issues with latest f1-packets version
+- Fixed "ModuleNotFoundError" and "AttributeError" in telemetry integration
+
+**📈 Improvements:**
+- Enhanced telemetry stability and reliability
+- Better error handling in UDP packet processing
+- Improved compatibility with F1 2025 telemetry format
+
 ### Version 2.0.0 - 2025-07-28
 #### 🎉 Major Release - Clean Architecture Refactor
 
