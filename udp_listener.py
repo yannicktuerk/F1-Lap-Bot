@@ -417,10 +417,14 @@ class F1TelemetryListener:
         """Process Time Trial packet - this confirms we're in Time Trial mode!"""
         try:
             # According to spec, Time Trial packet is 101 bytes total (3 x TimeTrialDataSet)
-            if len(data) < 72:  # Need at least one complete TimeTrialDataSet (24 bytes each)
+            # But payload after header is only 72 bytes (101 - 29 = 72)
+            if len(data) < 24:  # Need at least one complete TimeTrialDataSet
                 return
             
-            # TimeTrialDataSet structure (24 bytes each):
+            print(f"🔍 Time Trial packet payload size: {len(data)} bytes")
+            print(f"🔍 First 20 bytes: {data[:20].hex()}")
+            
+            # TimeTrialDataSet structure (spec says 24 bytes, but let's check actual size):
             # uint8 m_carIdx
             # uint8 m_teamId  
             # uint32 m_lapTimeInMS
@@ -434,8 +438,34 @@ class F1TelemetryListener:
             # uint8 m_customSetup
             # uint8 m_valid
             
+            # Try different sizes to find the right structure
+            for size in [20, 22, 24, 26]:
+                if len(data) >= size:
+                    try:
+                        if size == 20:
+                            player_data = struct.unpack('<BBIIIIBBBBB', data[:20])
+                        elif size == 22:
+                            player_data = struct.unpack('<BBIIIIBBBBBB', data[:22])
+                        elif size == 24:
+                            player_data = struct.unpack('<BBIIIIBBBBBXX', data[:24])  # Add padding
+                        else:
+                            continue
+                        
+                        print(f"✅ Successfully parsed with size {size}")
+                        break
+                    except struct.error as e:
+                        print(f"⚠️ Size {size} failed: {e}")
+                        continue
+            else:
+                # Fallback: just parse what we can
+                if len(data) >= 18:
+                    player_data = struct.unpack('<BBIIIIBBB', data[:18])
+                    player_data += (0, 0, 1)  # Add missing fields with defaults
+                else:
+                    return
+            
             # Parse Player Session Best (first dataset)
-            player_data = struct.unpack('<BBIIIIBBBBB', data[:24])
+            # player_data = struct.unpack('<BBIIIIBBBBB', data[:22])
             car_idx = player_data[0]
             team_id = player_data[1] 
             lap_time_ms = player_data[2]
