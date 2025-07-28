@@ -2,36 +2,22 @@
 
 This module listens for UDP telemetry data from F1 2025 and automatically
 submits lap times to the Discord bot when valid time trial laps are completed.
+
+Using f1-packets library for official F1 2025 packet parsing.
 """
 
 import socket
-import struct
-import asyncio
-import threading
-import time
 import json
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from datetime import datetime
 from dataclasses import dataclass
 
-# F1 2025 UDP Packet IDs (based on official Codemasters telemetry specification)
-PACKET_MOTION = 0
-PACKET_SESSION_DATA = 1
-PACKET_LAP_DATA = 2
-PACKET_EVENT = 3
-PACKET_PARTICIPANTS = 4
-PACKET_CAR_SETUPS = 5
-PACKET_CAR_TELEMETRY = 6
-PACKET_CAR_STATUS = 7
-PACKET_FINAL_CLASSIFICATION = 8
-PACKET_LOBBY_INFO = 9
-PACKET_CAR_DAMAGE = 10
-PACKET_SESSION_HISTORY = 11
-PACKET_TYRE_SETS = 12
-PACKET_MOTION_EX = 13
-PACKET_TIME_TRIAL = 14
-PACKET_LAP_POSITIONS = 15
+# Import f1-packets library for official F1 2025 packet parsing
+from f1_packets import PacketReader
+from f1_packets.packets_2025 import (
+    PacketSessionData, PacketLapData, PacketEventData, PacketTimeTrialData
+)
 
 # Session Types
 SESSION_TYPE_TIME_TRIAL = 10
@@ -64,26 +50,6 @@ class SessionInfo:
     is_time_trial: bool = False
     track_name: str = "Unknown"
 
-@dataclass
-class LapData:
-    """Lap data from F1 2025."""
-    lap_time_ms: int
-    sector1_time_ms: int
-    sector2_time_ms: int
-    sector3_time_ms: int
-    lap_distance: float
-    total_distance: float
-    safety_car_delta: float
-    car_position: int
-    current_lap_num: int
-    pit_status: int
-    sector: int
-    current_lap_invalid: bool
-    penalties: int
-    grid_position: int
-    driver_status: int
-    result_status: int
-    lap_valid_bit_flags: int
 
 class F1TelemetryListener:
     """F1 2025 UDP Telemetry Listener with validation."""
@@ -164,102 +130,58 @@ class F1TelemetryListener:
             print("🛑 Telemetry listener stopped")
     
     def process_packet(self, data: bytes):
-        """Process incoming UDP packet with F1 2025 29-byte header format."""
-        if len(data) < 29:  # F1 2025 header is 29 bytes
-            return
-        
+        """Process incoming UDP packet using f1-packets library."""
         try:
-            # F1 2025 Official Header Format (29 bytes):
-            # uint16 m_packetFormat (2025)
-            # uint8 m_gameYear (25)
-            # uint8 m_gameMajorVersion
-            # uint8 m_gameMinorVersion  
-            # uint8 m_packetVersion
-            # uint8 m_packetId
-            # uint64 m_sessionUID
-            # float m_sessionTime
-            # uint32 m_frameIdentifier
-            # uint32 m_overallFrameIdentifier
-            # uint8 m_playerCarIndex
-            # uint8 m_secondaryPlayerCarIndex
+            # Use f1-packets library to parse the packet
+            packet_reader = PacketReader()
+            packet = packet_reader.read(data)
             
-            header = struct.unpack('<HBBBBBQfIIBB', data[:29])
-            packet_format = header[0]     # Should be 2025
-            game_year = header[1]         # Should be 25
-            game_major_version = header[2]
-            game_minor_version = header[3]
-            packet_version = header[4]
-            packet_id = header[5]
-            session_uid = header[6]
-            session_time = header[7]
-            frame_identifier = header[8]
-            overall_frame_identifier = header[9]
-            player_car_index = header[10]
-            secondary_player_car_index = header[11]
-            
-            header_size = 29
-            
-            # Store player car index for lap data processing
-            self.player_car_index = player_car_index
-            
-            # Validate packet ID range
-            if packet_id < 0 or packet_id > 15:
+            if packet is None:
                 return
             
-            # Debug output
-            print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes, Format: {packet_format}, Year: {game_year}")
+            # Get header information
+            header = packet.header
+            self.player_car_index = header.m_playerCarIndex
             
-            # Process different packet types with payload validation
-            payload = data[header_size:]
-            if packet_id == PACKET_SESSION_DATA and len(payload) >= 2:
-                self.process_session_data(payload)
-            elif packet_id == PACKET_LAP_DATA and len(payload) >= 50:
-                self.process_lap_data(payload)
-            elif packet_id == PACKET_EVENT and len(payload) >= 4:
-                self.process_event_data(payload)
-            elif packet_id == PACKET_TIME_TRIAL and len(payload) >= 50:
-                self.process_time_trial_data(payload)
+            # Debug output
+            print(f"📦 Packet ID: {header.m_packetId}, Size: {len(data)} bytes, Format: {header.m_packetFormat}, Year: {header.m_gameYear}")
+            
+            # Process different packet types using official classes
+            if isinstance(packet, PacketSessionData):
+                self.process_session_data_official(packet)
+            elif isinstance(packet, PacketLapData):
+                self.process_lap_data_official(packet)
+            elif isinstance(packet, PacketEventData):
+                self.process_event_data_official(packet)
+            elif isinstance(packet, PacketTimeTrialData):
+                self.process_time_trial_data_official(packet)
                 
-        except struct.error as e:
+        except Exception as e:
             # Only show error for first few packets to avoid spam
             if not hasattr(self, '_error_count'):
                 self._error_count = 0
             
-            if self._error_count < 3:  # Reduced from 5 to 3 for less noise
+            if self._error_count < 3:
                 print(f"⚠️  Error parsing packet (size: {len(data)} bytes): {e}")
-                if len(data) <= 100:  # Show more data for debugging
+                if len(data) <= 100:
                     print(f"🔍 Raw packet data: {data.hex()[:200]}...")
                 self._error_count += 1
             elif self._error_count == 3:
                 print("⚠️  Suppressing further parsing errors (enable debug mode for more details)...")
                 self._error_count += 1
-                
-        except Exception as e:
-            print(f"❌ Unexpected error processing packet: {e}")
     
-    def process_session_data(self, data: bytes):
-        """Process session data packet using official F1 2025 PacketSessionData structure."""
+    def process_session_data_official(self, packet: PacketSessionData):
+        """Process session data packet using f1-packets official classes."""
         try:
-            # According to spec, we need at least 100+ bytes for session data
-            if len(data) < 100:
-                return
+            session_data = packet.m_sessionData
             
-            # F1 2025 PacketSessionData structure (after header):
-            # uint8 m_weather (offset 0)
-            # int8 m_trackTemperature (offset 1) 
-            # int8 m_airTemperature (offset 2)
-            # uint8 m_totalLaps (offset 3)
-            # uint16 m_trackLength (offset 4-5)
-            # uint8 m_sessionType (offset 6) *** THIS IS WHAT WE NEED ***
-            # int8 m_trackId (offset 7) *** AND THIS ***
-            
-            weather = data[0]
-            track_temperature = struct.unpack('<b', data[1:2])[0]  # signed byte
-            air_temperature = struct.unpack('<b', data[2:3])[0]    # signed byte  
-            total_laps = data[3]
-            track_length = struct.unpack('<H', data[4:6])[0]       # uint16
-            session_type = data[6]                                 # uint8
-            track_id = struct.unpack('<b', data[7:8])[0]          # signed byte
+            weather = session_data.m_weather
+            track_temperature = session_data.m_trackTemperature
+            air_temperature = session_data.m_airTemperature
+            total_laps = session_data.m_totalLaps
+            track_length = session_data.m_trackLength
+            session_type = session_data.m_sessionType
+            track_id = session_data.m_trackId
             
             print(f"🌡️ Weather: {weather}, Track Temp: {track_temperature}°C, Air Temp: {air_temperature}°C")
             print(f"🏁 Session Type: {session_type}, Track ID: {track_id}, Total Laps: {total_laps}")
@@ -282,7 +204,7 @@ class F1TelemetryListener:
                 self.session_info = SessionInfo(
                     session_type=session_type,
                     track_id=track_id,
-                    session_uid=0,
+                    session_uid=packet.header.m_sessionUID,
                     is_time_trial=True,
                     track_name=track_name
                 )
@@ -299,70 +221,24 @@ class F1TelemetryListener:
         except Exception as e:
             print(f"❌ Error processing session data: {e}")
     
-    def process_lap_data(self, data: bytes):
-        """Process lap data packet with flexible parsing."""
+    def process_lap_data_official(self, packet: PacketLapData):
+        """Process lap data packet using f1-packets official classes."""
         if not self.session_info or not self.session_info.is_time_trial:
             return
             
         try:
-            # Try to determine car data size dynamically
-            # Standard F1 lap data sizes: 43, 53, or 63 bytes per car
-            possible_car_sizes = [43, 53, 63]
-            player_data_offset = self.player_car_index * 53  # Default assumption
-            
-            # Try different car data sizes to find the correct one
-            for car_size in possible_car_sizes:
-                if len(data) >= car_size:  # At least one car's worth of data
-                    player_data_offset = self.player_car_index * car_size
-                    if len(data) >= player_data_offset + car_size:
-                        break
-            else:
-                # If none of the standard sizes work, skip this packet
+            # Get lap data for the player's car
+            if self.player_car_index >= len(packet.m_lapData):
                 return
                 
-            player_data = data[player_data_offset:player_data_offset + car_size]
+            player_lap_data = packet.m_lapData[self.player_car_index]
             
-            # Try different parsing formats based on data size
-            lap_data = None
-            
-            if car_size >= 53:
-                # Try F1 2024/2025 format first
-                try:
-                    lap_data = struct.unpack('<IfffffBBBBBBBBBBBf', player_data[:53])
-                except struct.error:
-                    pass
-            
-            if lap_data is None and car_size >= 43:
-                # Try F1 2022/2023 format
-                try:
-                    lap_data_partial = struct.unpack('<IfffffBBBBBBBBBBB', player_data[:43])
-                    # Extend with default values for missing fields
-                    lap_data = lap_data_partial + (0.0,)  # Add missing float at the end
-                except struct.error:
-                    pass
-            
-            if lap_data is None:
-                # Try minimal format as last resort
-                try:
-                    # Parse just the essential fields
-                    if len(player_data) >= 28:  # Minimum for lap time + sectors
-                        essential_data = struct.unpack('<Iffff', player_data[:20])
-                        lap_data = essential_data + (0.0, 0.0) + (0,) * 11 + (0.0,)  # Fill remaining fields
-                except struct.error:
-                    return  # Give up on this packet
-            
-            if lap_data is None:
-                return  # Couldn't parse this packet
-            
-            # Extract lap information (handle different data lengths gracefully)
-            lap_time_ms = lap_data[0] if len(lap_data) > 0 else 0
-            sector1_ms = int(lap_data[1] * 1000) if len(lap_data) > 1 and lap_data[1] > 0 else 0
-            sector2_ms = int(lap_data[2] * 1000) if len(lap_data) > 2 and lap_data[2] > 0 else 0
-            sector3_ms = int(lap_data[3] * 1000) if len(lap_data) > 3 and lap_data[3] > 0 else 0
-            lap_distance = lap_data[4] if len(lap_data) > 4 else 0.0
-            total_distance = lap_data[5] if len(lap_data) > 5 else 0.0
-            current_lap_invalid = bool(lap_data[8]) if len(lap_data) > 8 else False
-            lap_valid_flags = lap_data[16] if len(lap_data) > 16 else 0
+            lap_time_ms = player_lap_data.m_lastLapTimeInMS
+            sector1_ms = int(player_lap_data.m_sector1TimeInMS) if player_lap_data.m_sector1TimeInMS > 0 else 0
+            sector2_ms = int(player_lap_data.m_sector2TimeInMS) if player_lap_data.m_sector2TimeInMS > 0 else 0
+            sector3_ms = int(player_lap_data.m_sector3TimeInMS) if player_lap_data.m_sector3TimeInMS > 0 else 0
+            current_lap_invalid = player_lap_data.m_currentLapInvalid
+            lap_valid_flags = player_lap_data.m_lapValidBitFlags
             
             # Check if this is a completed, valid lap
             if (lap_time_ms > 0 and 
@@ -385,22 +261,12 @@ class F1TelemetryListener:
                 self.last_lap_time = lap_time_ms
                 
         except Exception as e:
-            # Only print errors occasionally to avoid spam
-            if not hasattr(self, '_lap_error_count'):
-                self._lap_error_count = 0
-            
-            if self._lap_error_count < 2:
-                print(f"⚠️  Error processing lap data: {e}")
-                self._lap_error_count += 1
-            elif self._lap_error_count == 2:
-                print("⚠️  Suppressing lap data parsing errors...")
-                self._lap_error_count += 1
+            print(f"❌ Error processing lap data: {e}")
     
-    def process_event_data(self, data: bytes):
-        """Process event data packet."""
+    def process_event_data_official(self, packet: PacketEventData):
+        """Process event data packet using f1-packets official classes."""
         try:
-            # Parse event string code (4 characters)
-            event_code = data[:4].decode('ascii', errors='ignore')
+            event_code = packet.m_eventStringCode.decode('ascii', errors='ignore')
             
             if event_code == "SSTA":  # Session Started
                 print("🚀 Session started")
@@ -413,95 +279,52 @@ class F1TelemetryListener:
         except Exception as e:
             print(f"❌ Error processing event data: {e}")
     
-    def process_time_trial_data(self, data: bytes):
-        """Process Time Trial packet - this confirms we're in Time Trial mode!"""
+    def process_time_trial_data_official(self, packet: PacketTimeTrialData):
+        """Process Time Trial packet using f1-packets official classes."""
         try:
-            # According to spec, Time Trial packet is 101 bytes total (3 x TimeTrialDataSet)
-            # But payload after header is only 72 bytes (101 - 29 = 72)
-            if len(data) < 24:  # Need at least one complete TimeTrialDataSet
-                return
+            print(f"\n🏆 TIME TRIAL PACKET DETECTED (OFFICIAL)!")
             
-            print(f"🔍 Time Trial packet payload size: {len(data)} bytes")
-            print(f"🔍 First 20 bytes: {data[:20].hex()}")
-            
-            # TimeTrialDataSet structure (spec says 24 bytes, but let's check actual size):
-            # uint8 m_carIdx
-            # uint8 m_teamId  
-            # uint32 m_lapTimeInMS
-            # uint32 m_sector1TimeInMS
-            # uint32 m_sector2TimeInMS
-            # uint32 m_sector3TimeInMS
-            # uint8 m_tractionControl
-            # uint8 m_gearboxAssist
-            # uint8 m_antiLockBrakes
-            # uint8 m_equalCarPerformance
-            # uint8 m_customSetup
-            # uint8 m_valid
-            
-            # Try different sizes to find the right structure
-            for size in [20, 22, 24, 26]:
-                if len(data) >= size:
-                    try:
-                        if size == 20:
-                            player_data = struct.unpack('<BBIIIIBBBBB', data[:20])
-                        elif size == 22:
-                            player_data = struct.unpack('<BBIIIIBBBBBB', data[:22])
-                        elif size == 24:
-                            player_data = struct.unpack('<BBIIIIBBBBBXX', data[:24])  # Add padding
-                        else:
-                            continue
-                        
-                        print(f"✅ Successfully parsed with size {size}")
-                        break
-                    except struct.error as e:
-                        print(f"⚠️ Size {size} failed: {e}")
-                        continue
-            else:
-                # Fallback: just parse what we can
-                if len(data) >= 18:
-                    player_data = struct.unpack('<BBIIIIBBB', data[:18])
-                    player_data += (0, 0, 1)  # Add missing fields with defaults
-                else:
-                    return
-            
-            # Parse Player Session Best (first dataset)
-            # player_data = struct.unpack('<BBIIIIBBBBB', data[:22])
-            car_idx = player_data[0]
-            team_id = player_data[1] 
-            lap_time_ms = player_data[2]
-            sector1_ms = player_data[3]
-            sector2_ms = player_data[4]
-            sector3_ms = player_data[5]
-            traction_control = player_data[6]
-            gearbox_assist = player_data[7]
-            anti_lock_brakes = player_data[8]
-            equal_car_performance = player_data[9]
-            custom_setup = player_data[10]
-            valid = player_data[11]
-            
-            print(f"\n🏆 TIME TRIAL PACKET DETECTED!")
-            print(f"🚗 Car Index: {car_idx}, Team: {team_id}")
-            
-            if valid and lap_time_ms > 0:
-                print(f"⏱️  Session Best: {self.format_time(lap_time_ms)}")
-                print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
-                print(f"🎮 Assists: TC:{traction_control}, Gearbox:{gearbox_assist}, ABS:{anti_lock_brakes}")
+            # Get the player session best (first data set)
+            if len(packet.m_timeTrialData) > 0:
+                player_data = packet.m_timeTrialData[0]  # Player Session Best
                 
-                # If we don't have session info yet, create it for Time Trial
-                if not self.session_info or not self.session_info.is_time_trial:
-                    # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
-                    self.session_info = SessionInfo(
-                        session_type=10,  # Time Trial
-                        track_id=-1,     # Unknown from this packet
-                        session_uid=0,
-                        is_time_trial=True,
-                        track_name="time_trial"  # Generic name until we get track info
-                    )
+                car_idx = player_data.m_carIdx
+                team_id = player_data.m_teamId
+                lap_time_ms = player_data.m_lapTimeInMS
+                sector1_ms = player_data.m_sector1TimeInMS
+                sector2_ms = player_data.m_sector2TimeInMS
+                sector3_ms = player_data.m_sector3TimeInMS
+                traction_control = player_data.m_tractionControl
+                gearbox_assist = player_data.m_gearboxAssist
+                anti_lock_brakes = player_data.m_antiLockBrakes
+                equal_car_performance = player_data.m_equalCarPerformance
+                custom_setup = player_data.m_customSetup
+                valid = player_data.m_valid
+                
+                print(f"🚗 Car Index: {car_idx}, Team: {team_id}")
+                
+                if valid and lap_time_ms > 0:
+                    print(f"⏱️  Session Best: {self.format_time(lap_time_ms)}")
+                    print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
+                    print(f"🎮 Assists: TC:{traction_control}, Gearbox:{gearbox_assist}, ABS:{anti_lock_brakes}")
                     
-                    print(f"✅ TIME TRIAL MODE CONFIRMED!")
-                    print(f"🎯 Ready to capture lap times!\n")
+                    # If we don't have session info yet, create it for Time Trial
+                    if not self.session_info or not self.session_info.is_time_trial:
+                        # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
+                        self.session_info = SessionInfo(
+                            session_type=10,  # Time Trial
+                            track_id=-1,     # Unknown from this packet
+                            session_uid=packet.header.m_sessionUID,
+                            is_time_trial=True,
+                            track_name="time_trial"  # Generic name until we get track info
+                        )
+                        
+                        print(f"✅ TIME TRIAL MODE CONFIRMED!")
+                        print(f"🎯 Ready to capture lap times!\n")
+                else:
+                    print(f"⚠️  No valid session best yet")
             else:
-                print(f"⚠️  No valid session best yet")
+                print(f"⚠️  No time trial data available in packet")
                 
         except Exception as e:
             print(f"❌ Error processing Time Trial data: {e}")
