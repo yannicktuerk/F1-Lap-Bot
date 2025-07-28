@@ -199,9 +199,6 @@ class F1TelemetryListener:
             session_type = packet.session_type
             track_id = packet.track_id
             
-            print(f"🌡️ Weather: {weather}, Track Temp: {track_temperature}°C, Air Temp: {air_temperature}°C")
-            print(f"🏁 Session Type: {session_type}, Track ID: {track_id}, Total Laps: {total_laps}")
-            
             session_type_names = {
                 1: "Practice 1", 2: "Practice 2", 3: "Practice 3", 4: "Short Practice",
                 5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
@@ -211,7 +208,7 @@ class F1TelemetryListener:
             session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
             track_name = self.track_mapping.get(track_id, f"track_{track_id}")
             
-            print(f"🎮 Session: {session_name}, Track: {track_name} (Type: {session_type}, ID: {track_id})")
+            print(f"📍 {session_name} at {track_name.title()} ({track_temperature}°C)")
             
             # Check if this is a time trial session
             is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
@@ -349,8 +346,8 @@ class F1TelemetryListener:
                 print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
                 print(f"🎮 Assists: TC:{traction_control}, Gearbox:{gearbox_assist}, ABS:{anti_lock_brakes}")
                 
-                # If we don't have session info yet, create it for Time Trial
-                if not self.session_info or not self.session_info.is_time_trial:
+                # Don't override session info if we already have proper track data from session packet
+                if not self.session_info:
                     # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
                     self.session_info = SessionInfo(
                         session_type=10,  # Time Trial
