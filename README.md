@@ -296,7 +296,7 @@ cd f1-lap-bot
 **Schritt 2: Python-Abhängigkeiten installieren**
 ```bash
 # Erforderliche Pakete installieren
-pip install socket struct json requests
+pip install requests
 ```
 
 **Schritt 3: F1 2025 Telemetrie aktivieren**
@@ -307,7 +307,18 @@ pip install socket struct json requests
 5. IP-Adresse: `127.0.0.1` (für lokalen Betrieb)
 6. Format: **2025** (neuestes Format)
 
-**Schritt 4: UDP-Listener auf deinem PC starten**
+**Schritt 4: Konfiguration für Bot-Integration (optional)**
+```bash
+# Konfigurationsdatei erstellen
+cp config_example.json config.json
+
+# config.json bearbeiten und folgende Werte setzen:
+# - discord_user_id: Deine Discord User ID
+# - bot_api_url: URL des zentralen Bot-Servers
+# - bot_integration: true (für automatische Übertragung)
+```
+
+**Schritt 5: UDP-Listener auf deinem PC starten**
 ```bash
 # Terminal: UDP-Listener starten (muss auf dem gleichen PC wie F1 2025 laufen!)
 python udp_listener.py

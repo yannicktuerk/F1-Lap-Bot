@@ -350,27 +350,56 @@ class F1TelemetryListener:
         print("-" * 60)
     
     def submit_to_bot(self, lap_time: str, track_name: str):
-        """Submit lap time to Discord bot (placeholder for integration)."""
-        # TODO: Integrate with Discord bot API
-        # This would make an API call to your bot to submit the lap time
-        print(f"🤖 Submitting to bot: /lap submit {lap_time} {track_name}")
+        """Submit lap time to Discord bot running on central server."""
+        if not self.discord_user_id:
+            print("❌ Discord User ID not configured - cannot submit to bot")
+            print(f"📝 To submit manually: /lap submit {lap_time} {track_name}")
+            return
+            
+        print(f"🤖 Submitting to central bot server: {lap_time} on {track_name}")
         
-        # Example integration:
-        # try:
-        #     response = requests.post(
-        #         'http://localhost:3000/api/submit-lap',
-        #         json={
-        #             'time': lap_time,
-        #             'track': track_name,
-        #             'user_id': 'telemetry_user'  # Would need to be configured
-        #         }
-        #     )
-        #     if response.status_code == 200:
-        #         print("✅ Lap time submitted successfully!")
-        #     else:
-        #         print(f"❌ Failed to submit lap time: {response.status_code}")
-        # except Exception as e:
-        #     print(f"❌ Error submitting to bot: {e}")
+        try:
+            # Submit to central Discord bot server
+            response = requests.post(
+                self.bot_api_url,
+                json={
+                    'time': lap_time,
+                    'track': track_name,
+                    'user_id': self.discord_user_id,
+                    'source': 'telemetry',
+                    'timestamp': datetime.now().isoformat()
+                },
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'F1-2025-UDP-Listener/1.0'
+                },
+                timeout=10  # 10 second timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print("✅ Lap time submitted successfully to Discord!")
+                if 'message' in result:
+                    print(f"📝 Server response: {result['message']}")
+            elif response.status_code == 400:
+                error = response.json().get('error', 'Bad request')
+                print(f"❌ Invalid submission: {error}")
+            elif response.status_code == 409:
+                print("⚠️  Lap time not faster than personal best - not submitted")
+            else:
+                print(f"❌ Failed to submit lap time: HTTP {response.status_code}")
+                print(f"📝 Fallback: /lap submit {lap_time} {track_name}")
+                
+        except requests.exceptions.ConnectionError:
+            print("❌ Cannot connect to Discord bot server")
+            print("📝 Check if bot server is running and URL is correct")
+            print(f"📝 Manual submission: /lap submit {lap_time} {track_name}")
+        except requests.exceptions.Timeout:
+            print("❌ Request to bot server timed out")
+            print(f"📝 Manual submission: /lap submit {lap_time} {track_name}")
+        except Exception as e:
+            print(f"❌ Error submitting to bot server: {e}")
+            print(f"📝 Manual submission: /lap submit {lap_time} {track_name}")
     
     def format_time(self, time_ms: int) -> str:
         """Format milliseconds to MM:SS.mmm format."""
@@ -387,19 +416,57 @@ class F1TelemetryListener:
             return f"{seconds:.3f}"
 
 
+def load_config():
+    """Load configuration from config.json file."""
+    try:
+        with open('config.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("⚠️  config.json not found, using default settings")
+        print("📝 Copy config_example.json to config.json and configure your settings")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"❌ Invalid JSON in config.json: {e}")
+        return {}
+
 def main():
     """Main function to run the telemetry listener."""
     print("🏎️ F1 2025 UDP Telemetry Listener")
     print("=" * 40)
     print("🎯 Time Trial Mode Only")
     print("📡 Listening for valid lap completions...")
+    
+    # Load configuration
+    config = load_config()
+    
+    discord_user_id = config.get('discord_user_id')
+    bot_api_url = config.get('bot_api_url')
+    port = config.get('port', 20777)
+    bot_integration = config.get('bot_integration', False)
+    player_name = config.get('player_name', 'Unknown Player')
+    
+    if bot_integration and discord_user_id:
+        print(f"🤖 Bot integration: ENABLED")
+        print(f"👤 Player: {player_name}")
+        print(f"📱 Discord User ID: {discord_user_id}")
+        print(f"🌐 Bot Server: {bot_api_url}")
+    else:
+        print("📝 Bot integration: DISABLED (manual submission required)")
+        if bot_integration and not discord_user_id:
+            print("❌ Discord User ID missing - check config.json")
+    
     print("\n⚙️  Setup Instructions:")
     print("1. Enable UDP telemetry in F1 2025 settings")
     print("2. Start a Time Trial session")
     print("3. Complete valid laps to see them captured")
     print("\n🛑 Press Ctrl+C to stop\n")
     
-    listener = F1TelemetryListener(port=20777, bot_integration=False)
+    listener = F1TelemetryListener(
+        port=port, 
+        bot_integration=bot_integration,
+        discord_user_id=discord_user_id,
+        bot_api_url=bot_api_url
+    )
     
     try:
         listener.start()
