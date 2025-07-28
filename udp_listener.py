@@ -14,9 +14,9 @@ from datetime import datetime
 from dataclasses import dataclass
 
 # Import f1-packets library for official F1 2025 packet parsing
-from f1_packets import PacketReader
-from f1_packets.packets_2025 import (
-    PacketSessionData, PacketLapData, PacketEventData, PacketTimeTrialData
+from f1.listener import PacketListener
+from f1.packets import (
+    PacketSessionData, PacketLapData, PacketEventData, PacketTimeTrialData, Packet
 )
 
 # Session Types
@@ -133,8 +133,7 @@ class F1TelemetryListener:
         """Process incoming UDP packet using f1-packets library."""
         try:
             # Use f1-packets library to parse the packet
-            packet_reader = PacketReader()
-            packet = packet_reader.read(data)
+            packet = Packet.from_buffer(data)
             
             if packet is None:
                 return
