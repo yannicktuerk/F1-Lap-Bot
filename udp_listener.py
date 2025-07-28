@@ -69,32 +69,32 @@ class F1TelemetryListener:
         # Personal best times per track (in milliseconds)
         self.personal_bests: Dict[str, int] = {}
         
-        # Track mapping (F1 2025 track IDs to our track names)
+        # Track mapping (F1 2025 track IDs) - Will be updated based on user feedback
+        # FORMAT: track_id: "internal_name"  # CONFIRMED/TBD - Real track name
         self.track_mapping = {
-            0: "bahrain",
-            1: "jeddah",
-            2: "australia",
-            3: "baku",
-            4: "spain",     # Fixed: Spain, not Miami
-            5: "miami",     # Fixed: Miami is track 5
-            6: "imola",
-            7: "monaco",
-            8: "canada", 
-            9: "unknown_9",   # TBD - was assumed Austria but 17 is Austria
-            10: "silverstone",
-            11: "hungary",
-            12: "spa",
-            13: "netherlands",
-            14: "monza",
-            15: "singapore",
-            16: "japan",
-            17: "austria",   # CONFIRMED: Track ID 17 is Austria (Red Bull Ring)
-            18: "usa",
-            19: "mexico",
-            20: "brazil",
-            21: "las-vegas",
-            22: "abu-dhabi",
-            23: "qatar"      # Qatar is likely a higher track ID
+            0: "track_0",      # TBD
+            1: "track_1",      # TBD  
+            2: "track_2",      # TBD
+            3: "track_3",      # TBD
+            4: "spain",        # CONFIRMED - Spain (Catalunya)
+            5: "track_5",      # TBD
+            6: "track_6",      # TBD
+            7: "track_7",      # TBD
+            8: "track_8",      # TBD
+            9: "track_9",      # TBD
+            10: "track_10",    # TBD
+            11: "track_11",    # TBD
+            12: "track_12",    # TBD
+            13: "track_13",    # TBD
+            14: "track_14",    # TBD
+            15: "track_15",    # TBD
+            16: "track_16",    # TBD
+            17: "austria",     # CONFIRMED - Austria (Red Bull Ring)
+            18: "track_18",    # TBD
+            19: "track_19",    # TBD
+            20: "track_20",    # TBD
+            21: "track_21",    # TBD
+            22: "track_22",    # TBD
         }
     
     def start(self):
@@ -257,16 +257,36 @@ class F1TelemetryListener:
                 
             player_lap_data = packet.lap_data[self.player_car_index]
             
-            # Use the correct field names from the debug output
+            # Extract ALL available timing data for debugging
             try:
-                lap_time_ms = player_lap_data.last_lap_time_in_ms
+                # Main lap timing
+                lap_time_ms = getattr(player_lap_data, 'last_lap_time_in_ms', 0)
+                current_lap_time_ms = getattr(player_lap_data, 'current_lap_time_in_ms', 0)
+                best_lap_time_ms = getattr(player_lap_data, 'best_lap_time_in_ms', 0)
                 
-                # Calculate sector times - sector times might be 0 if lap just completed
-                sector1_ms = (player_lap_data.sector1_time_minutes_part * 60000) + player_lap_data.sector1_time_ms_part
-                sector2_ms = (player_lap_data.sector2_time_minutes_part * 60000) + player_lap_data.sector2_time_ms_part
+                # Sector times (try different field name patterns)
+                sector1_ms = 0
+                sector2_ms = 0
+                sector3_ms = 0
                 
-                # Calculate sector 3 from total lap time
-                if lap_time_ms > 0:
+                # Try multiple field name patterns for sectors
+                try:
+                    # Pattern 1: minutes + ms parts
+                    s1_min = getattr(player_lap_data, 'sector1_time_minutes_part', 0)
+                    s1_ms = getattr(player_lap_data, 'sector1_time_ms_part', 0)
+                    sector1_ms = (s1_min * 60000) + s1_ms
+                    
+                    s2_min = getattr(player_lap_data, 'sector2_time_minutes_part', 0)
+                    s2_ms = getattr(player_lap_data, 'sector2_time_ms_part', 0)
+                    sector2_ms = (s2_min * 60000) + s2_ms
+                except:
+                    # Pattern 2: direct milliseconds
+                    sector1_ms = getattr(player_lap_data, 'sector1_time_in_ms', 0)
+                    sector2_ms = getattr(player_lap_data, 'sector2_time_in_ms', 0)
+                    sector3_ms = getattr(player_lap_data, 'sector3_time_in_ms', 0)
+                
+                # Calculate sector 3 if not directly available
+                if sector3_ms == 0 and lap_time_ms > 0:
                     if sector1_ms > 0 and sector2_ms > 0:
                         sector3_ms = lap_time_ms - sector1_ms - sector2_ms
                     else:
@@ -274,15 +294,28 @@ class F1TelemetryListener:
                         sector1_ms = sector1_ms or int(lap_time_ms * 0.33)
                         sector2_ms = sector2_ms or int(lap_time_ms * 0.33) 
                         sector3_ms = lap_time_ms - sector1_ms - sector2_ms
-                else:
-                    sector3_ms = 0
                 
-                current_lap_invalid = player_lap_data.current_lap_invalid
+                # Lap validity information
+                current_lap_invalid = getattr(player_lap_data, 'current_lap_invalid', False)
+                lap_valid_bit_flags = getattr(player_lap_data, 'lap_valid_bit_flags', 0)
+                penalties = getattr(player_lap_data, 'penalties', 0)
                 
-                # Lap valid flags don't seem to be available in this structure, use penalties as fallback
-                lap_valid_flags = player_lap_data.penalties if hasattr(player_lap_data, 'penalties') else 0
+                # Additional information
+                car_position = getattr(player_lap_data, 'car_position', 0)
+                current_lap_num = getattr(player_lap_data, 'current_lap_num', 0)
+                pit_status = getattr(player_lap_data, 'pit_status', 0)
                 
-                print(f"🎯 Lap time: {lap_time_ms}ms, Sectors: {sector1_ms}|{sector2_ms}|{sector3_ms}, Invalid: {current_lap_invalid}, Penalties: {lap_valid_flags}")
+                # Comprehensive debug output
+                print(f"🎯 LAP DATA DEBUG:")
+                print(f"   Last Lap: {self.format_time(lap_time_ms)} ({lap_time_ms}ms)")
+                print(f"   Current Lap: {self.format_time(current_lap_time_ms)} ({current_lap_time_ms}ms)")
+                print(f"   Best Lap: {self.format_time(best_lap_time_ms)} ({best_lap_time_ms}ms)")
+                print(f"   Sectors: S1:{self.format_time(sector1_ms)} | S2:{self.format_time(sector2_ms)} | S3:{self.format_time(sector3_ms)}")
+                print(f"   Validity: Invalid={current_lap_invalid}, Flags={lap_valid_bit_flags}, Penalties={penalties}")
+                print(f"   Position: {car_position}, Lap: {current_lap_num}, Pit: {pit_status}")
+                
+                # Show all available attributes for debugging
+                print(f"   📋 ALL FIELDS: {[attr for attr in dir(player_lap_data) if not attr.startswith('_')]}")
             except Exception as field_error:
                 print(f"❌ Field access error: {field_error}")
                 return
@@ -295,7 +328,7 @@ class F1TelemetryListener:
                 
                 # Validate lap
                 is_valid_lap = self.validate_lap(
-                    lap_time_ms, current_lap_invalid, lap_valid_flags
+                    lap_time_ms, current_lap_invalid, lap_valid_bit_flags
                 )
                 
                 if is_valid_lap:
