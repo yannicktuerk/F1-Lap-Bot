@@ -15,7 +15,8 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass
 
-# F1 2025 UDP Packet IDs (based on Codemasters telemetry specification)
+# F1 2025 UDP Packet IDs (based on official Codemasters telemetry specification)
+PACKET_MOTION = 0
 PACKET_SESSION_DATA = 1
 PACKET_LAP_DATA = 2
 PACKET_EVENT = 3
@@ -27,6 +28,10 @@ PACKET_FINAL_CLASSIFICATION = 8
 PACKET_LOBBY_INFO = 9
 PACKET_CAR_DAMAGE = 10
 PACKET_SESSION_HISTORY = 11
+PACKET_TYRE_SETS = 12
+PACKET_MOTION_EX = 13
+PACKET_TIME_TRIAL = 14
+PACKET_LAP_POSITIONS = 15
 
 # Session Types
 SESSION_TYPE_TIME_TRIAL = 10
@@ -159,63 +164,50 @@ class F1TelemetryListener:
             print("🛑 Telemetry listener stopped")
     
     def process_packet(self, data: bytes):
-        """Process incoming UDP packet with robust header parsing."""
-        if len(data) < 20:  # Absolute minimum packet size
+        """Process incoming UDP packet with F1 2025 29-byte header format."""
+        if len(data) < 29:  # F1 2025 header is 29 bytes
             return
         
         try:
-            # Analyze the actual packet structure from the hex data
-            # Raw data: e9071901090103441e8784adbd5b14df965e43aa260000aa26000000ff4255544e...
-            # This suggests: [e907] [1901] [09] [01] [03] [44] ...
-            packet_id = None
-            header_size = 24
+            # F1 2025 Official Header Format (29 bytes):
+            # uint16 m_packetFormat (2025)
+            # uint8 m_gameYear (25)
+            # uint8 m_gameMajorVersion
+            # uint8 m_gameMinorVersion  
+            # uint8 m_packetVersion
+            # uint8 m_packetId
+            # uint64 m_sessionUID
+            # float m_sessionTime
+            # uint32 m_frameIdentifier
+            # uint32 m_overallFrameIdentifier
+            # uint8 m_playerCarIndex
+            # uint8 m_secondaryPlayerCarIndex
             
-            # Try F1 2025 format with corrected structure
-            if len(data) >= 24:
-                try:
-                    # Format: packet_format(H), game_version(H), packet_version(B), packet_id(B), session_uid(Q), session_time(f), frame_id(I)
-                    header = struct.unpack('<HHBBQfI', data[:24])
-                    packet_format = header[0]  # e907 = 2025 in little endian
-                    game_version = header[1]   # 1901 = 2019?
-                    packet_version = header[2]  # 09
-                    packet_id = header[3]      # 01
-                    session_uid = header[4]
-                    session_time = header[5]
-                    frame_identifier = header[6]
-                    
-                    # Accept various F1 game formats
-                    if packet_format in [2019, 2020, 2021, 2022, 2023, 2024, 2025]:
-                        header_size = 24
-                    else:
-                        # Try alternative interpretation
-                        raise struct.error("Unknown packet format")
-                        
-                except struct.error:
-                    # Try simpler format based on actual data pattern
-                    try:
-                        # Let's try a different interpretation of the header
-                        # Based on hex: e907 1901 09 01 03 44 1e 87...
-                        header = struct.unpack('<HHBBBBBB', data[:8])
-                        packet_format = header[0]  # e907
-                        game_version = header[1]   # 1901 
-                        packet_version = header[2] # 09
-                        packet_id = header[3]      # 01
-                        header_size = 24  # Still assume 24 byte header
-                    except struct.error:
-                        # Last resort: minimal parsing
-                        if len(data) >= 4:
-                            packet_id = data[3]  # 4th byte as packet ID
-                            header_size = 24
-                        else:
-                            raise struct.error("Cannot parse packet header")
+            header = struct.unpack('<HBBBBBQfIIBB', data[:29])
+            packet_format = header[0]     # Should be 2025
+            game_year = header[1]         # Should be 25
+            game_major_version = header[2]
+            game_minor_version = header[3]
+            packet_version = header[4]
+            packet_id = header[5]
+            session_uid = header[6]
+            session_time = header[7]
+            frame_identifier = header[8]
+            overall_frame_identifier = header[9]
+            player_car_index = header[10]
+            secondary_player_car_index = header[11]
+            
+            header_size = 29
+            
+            # Store player car index for lap data processing
+            self.player_car_index = player_car_index
             
             # Validate packet ID range
-            if packet_id is None or packet_id < 0 or packet_id > 15:
-                # Skip invalid packet IDs silently
+            if packet_id < 0 or packet_id > 15:
                 return
             
-            # Debug output - show what we're receiving
-            print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes, Format: {packet_format if 'packet_format' in locals() else 'unknown'}")
+            # Debug output
+            print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes, Format: {packet_format}, Year: {game_year}")
             
             # Process different packet types with payload validation
             payload = data[header_size:]
@@ -244,65 +236,63 @@ class F1TelemetryListener:
             print(f"❌ Unexpected error processing packet: {e}")
     
     def process_session_data(self, data: bytes):
-        """Process session data packet."""
+        """Process session data packet using official F1 2025 PacketSessionData structure."""
         try:
-            # Check minimum data length for session data
-            if len(data) < 10:
+            # According to spec, we need at least 100+ bytes for session data
+            if len(data) < 100:
                 return
             
-            # Based on analysis, session data seems to start after a 5-byte prefix (3c000000ff)
-            # Most promising offsets were 5, 6, and 7
-            session_offset = 5  # Skip the 3c000000ff prefix
+            # F1 2025 PacketSessionData structure (after header):
+            # uint8 m_weather (offset 0)
+            # int8 m_trackTemperature (offset 1) 
+            # int8 m_airTemperature (offset 2)
+            # uint8 m_totalLaps (offset 3)
+            # uint16 m_trackLength (offset 4-5)
+            # uint8 m_sessionType (offset 6) *** THIS IS WHAT WE NEED ***
+            # int8 m_trackId (offset 7) *** AND THIS ***
             
-            if len(data) < session_offset + 2:
-                return
+            weather = data[0]
+            track_temperature = struct.unpack('<b', data[1:2])[0]  # signed byte
+            air_temperature = struct.unpack('<b', data[2:3])[0]    # signed byte  
+            total_laps = data[3]
+            track_length = struct.unpack('<H', data[4:6])[0]       # uint16
+            session_type = data[6]                                 # uint8
+            track_id = struct.unpack('<b', data[7:8])[0]          # signed byte
             
-            # Parse session data at the discovered offset
-            session_type = data[session_offset]
-            track_id = data[session_offset + 1]
+            print(f"🌡️ Weather: {weather}, Track Temp: {track_temperature}°C, Air Temp: {air_temperature}°C")
+            print(f"🏁 Session Type: {session_type}, Track ID: {track_id}, Total Laps: {total_laps}")
             
-            # Debug output
             session_type_names = {
                 1: "Practice 1", 2: "Practice 2", 3: "Practice 3", 4: "Short Practice",
                 5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
                 9: "OSQ", 10: "Time Trial", 12: "Race", 13: "Race 2"
             }
             
-            # Only show session info when it's a recognized session type
-            if session_type in session_type_names:
-                session_name = session_type_names[session_type]
-                track_name = self.track_mapping.get(track_id, f"track_{track_id}")
-                print(f"🎮 Session: {session_name}, Track: {track_name} (Type: {session_type}, Track ID: {track_id})")
+            session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
+            track_name = self.track_mapping.get(track_id, f"track_{track_id}")
+            
+            print(f"🎮 Session: {session_name}, Track: {track_name} (Type: {session_type}, ID: {track_id})")
+            
+            # Check if this is a time trial session
+            is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
+            
+            if is_time_trial and (not self.session_info or self.session_info.track_id != track_id):
+                self.session_info = SessionInfo(
+                    session_type=session_type,
+                    track_id=track_id,
+                    session_uid=0,
+                    is_time_trial=True,
+                    track_name=track_name
+                )
                 
-                # Check if this is a time trial session
-                is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
+                print(f"🏆 TIME TRIAL SESSION DETECTED!")
+                print(f"📍 Track: {track_name.title()} (ID: {track_id})")
+                print(f"🎮 Session Type: Time Trial")
+                print("✅ Ready to capture lap times!\n")
                 
-                if is_time_trial and (not self.session_info or self.session_info.track_id != track_id):
-                    self.session_info = SessionInfo(
-                        session_type=session_type,
-                        track_id=track_id,
-                        session_uid=0,  # Would need to parse from header
-                        is_time_trial=is_time_trial,
-                        track_name=track_name
-                    )
-                    
-                    print(f"🏁 Time Trial session detected!")
-                    print(f"📍 Track: {track_name.title()} (ID: {track_id})")
-                    print(f"🎮 Session Type: Time Trial")
-                    print("✅ Ready to capture lap times!\n")
-                    
-                elif not is_time_trial and self.session_info and self.session_info.is_time_trial:
-                    print("🚫 Session changed - no longer Time Trial mode")
-                    self.session_info = None
-            else:
-                # For debugging unknown session types, show hex data
-                if not hasattr(self, '_session_debug_count'):
-                    self._session_debug_count = 0
-                
-                if self._session_debug_count < 3:
-                    hex_data = data[:20].hex() if len(data) >= 20 else data.hex()
-                    print(f"🔍 Unknown session type {session_type} at offset {session_offset}, hex: {hex_data}")
-                    self._session_debug_count += 1
+            elif not is_time_trial and self.session_info and self.session_info.is_time_trial:
+                print("🚫 Session changed - no longer Time Trial mode")
+                self.session_info = None
                 
         except Exception as e:
             print(f"❌ Error processing session data: {e}")
