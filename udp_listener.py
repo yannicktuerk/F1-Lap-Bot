@@ -248,19 +248,27 @@ class F1TelemetryListener:
                 
             player_lap_data = packet.lap_data[self.player_car_index]
             
-            # Try alternative field names - let's test what actually exists
-            print(f"🔍 Debug: Available LapData attributes: {[attr for attr in dir(player_lap_data) if not attr.startswith('_')]}")
-            
-            # Try common field name variations
+            # Use the correct field names from the debug output
             try:
-                lap_time_ms = getattr(player_lap_data, 'last_lap_time_in_ms', 0) or getattr(player_lap_data, 'lastLapTimeInMS', 0) or getattr(player_lap_data, 'm_lastLapTimeInMS', 0)
-                sector1_ms = int(getattr(player_lap_data, 'sector1_time_in_ms', 0) or getattr(player_lap_data, 'sector1TimeInMS', 0) or getattr(player_lap_data, 'm_sector1TimeInMS', 0))
-                sector2_ms = int(getattr(player_lap_data, 'sector2_time_in_ms', 0) or getattr(player_lap_data, 'sector2TimeInMS', 0) or getattr(player_lap_data, 'm_sector2TimeInMS', 0))
-                sector3_ms = int(getattr(player_lap_data, 'sector3_time_in_ms', 0) or getattr(player_lap_data, 'sector3TimeInMS', 0) or getattr(player_lap_data, 'm_sector3TimeInMS', 0))
-                current_lap_invalid = getattr(player_lap_data, 'current_lap_invalid', False) or getattr(player_lap_data, 'currentLapInvalid', False) or getattr(player_lap_data, 'm_currentLapInvalid', False)
-                lap_valid_flags = getattr(player_lap_data, 'lap_valid_bit_flags', 0) or getattr(player_lap_data, 'lapValidBitFlags', 0) or getattr(player_lap_data, 'm_lapValidBitFlags', 0)
+                lap_time_ms = player_lap_data.last_lap_time_in_ms
                 
-                print(f"🎯 Lap time: {lap_time_ms}ms, Sectors: {sector1_ms}|{sector2_ms}|{sector3_ms}, Invalid: {current_lap_invalid}, Flags: {lap_valid_flags}")
+                # Calculate sector times from minutes and milliseconds parts
+                sector1_ms = (player_lap_data.sector1_time_minutes_part * 60000) + player_lap_data.sector1_time_ms_part
+                sector2_ms = (player_lap_data.sector2_time_minutes_part * 60000) + player_lap_data.sector2_time_ms_part
+                
+                # Sector 3 isn't directly available, but we can calculate it
+                # sector3_ms = lap_time_ms - sector1_ms - sector2_ms (if lap_time_ms > 0)
+                if lap_time_ms > 0 and sector1_ms > 0 and sector2_ms > 0:
+                    sector3_ms = lap_time_ms - sector1_ms - sector2_ms
+                else:
+                    sector3_ms = 0
+                
+                current_lap_invalid = player_lap_data.current_lap_invalid
+                
+                # Lap valid flags don't seem to be available in this structure, use penalties as fallback
+                lap_valid_flags = player_lap_data.penalties if hasattr(player_lap_data, 'penalties') else 0
+                
+                print(f"🎯 Lap time: {lap_time_ms}ms, Sectors: {sector1_ms}|{sector2_ms}|{sector3_ms}, Invalid: {current_lap_invalid}, Penalties: {lap_valid_flags}")
             except Exception as field_error:
                 print(f"❌ Field access error: {field_error}")
                 return
