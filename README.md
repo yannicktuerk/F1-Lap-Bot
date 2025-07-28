@@ -307,16 +307,75 @@ pip install requests
 5. IP-Adresse: `127.0.0.1` (für lokalen Betrieb)
 6. Format: **2025** (neuestes Format)
 
-**Schritt 4: Konfiguration für Bot-Integration (optional)**
+**Schritt 4: Konfiguration für Bot-Integration erstellen**
 ```bash
 # Konfigurationsdatei erstellen
 cp config_example.json config.json
 
-# config.json bearbeiten und folgende Werte setzen:
-# - discord_user_id: Deine Discord User ID
-# - bot_api_url: URL des zentralen Bot-Servers
-# - bot_integration: true (für automatische Übertragung)
+# config.json bearbeiten - siehe detaillierte Erklärung unten!
 ```
+
+### 📋 Detaillierte Konfigurationserklärung
+
+**config.json Beispiel:**
+```json
+{
+    "discord_user_id": "123456789012345678",
+    "bot_api_url": "https://your-bot-server.herokuapp.com/api/telemetry/submit",
+    "port": 20777,
+    "bot_integration": true,
+    "player_name": "MaxVerstappen"
+}
+```
+
+#### 🔧 Konfigurationswerte erklärt:
+
+**1. `discord_user_id` - Deine Discord Benutzer-ID**
+- **Was ist das?** Deine eindeutige Discord-Nummer (18 Ziffern)
+- **Wo finde ich die?** 
+  1. Discord öffnen → Einstellungen → Erweitert → Entwicklermodus aktivieren
+  2. Rechtsklick auf deinen Namen → "Benutzer-ID kopieren"
+- **Beispiel:** `"123456789012345678"`
+- **Wichtig:** Muss in Anführungszeichen stehen!
+
+**2. `bot_api_url` - Server-URL des zentralen Discord Bots**
+- **Was ist das?** Die HTTP-Adresse, wo der Discord Bot auf dem Server läuft
+- **Wo bekomme ich die?** Vom Bot-Administrator/Server-Owner
+- **Beispiele:**
+  - `"https://your-bot-server.herokuapp.com/api/telemetry/submit"`
+  - `"http://192.168.1.100:8080/api/telemetry/submit"` (lokales Netzwerk)
+  - `"https://f1bot.dein-server.de/api/telemetry/submit"`
+- **Wichtig:** Muss `/api/telemetry/submit` am Ende haben!
+
+**3. `player_name` - Dein Spielername (optional)**
+- **Was ist das?** Ein Anzeigename für Logs und Debugging
+- **Beispiele:** `"MaxVerstappen"`, `"Hamilton44"`, `"YourNickname"`
+- **Hinweis:** Wird NUR für lokale Anzeige verwendet, nicht für Discord!
+
+**4. `port` - UDP Port für F1 2025 Telemetrie**
+- **Standard:** `20777` (normalerweise nicht ändern)
+- **Wann ändern?** Nur wenn F1 2025 anderen Port verwendet
+
+**5. `bot_integration` - Automatische Übertragung**
+- **`true`:** Rundenzeiten werden automatisch an Discord Bot gesendet
+- **`false`:** Nur lokale Anzeige, keine automatische Übertragung
+
+#### ❓ Häufige Fragen zur Konfiguration:
+
+**F: Woher bekomme ich die `bot_api_url`?**
+A: Vom Administrator des Discord-Servers, wo der F1-Bot läuft. Frage nach der "Telemetrie-API URL".
+
+**F: Was passiert, wenn die `discord_user_id` falsch ist?**
+A: Der Bot kann deine Rundenzeiten nicht zuordnen und sie werden abgelehnt.
+
+**F: Kann ich mehrere Konfigurationen haben?**
+A: Ja! Benenne sie z.B. `config_server1.json`, `config_server2.json` und starte mit:
+```bash
+python udp_listener.py --config config_server1.json
+```
+
+**F: Muss ich `player_name` setzen?**
+A: Nein, ist optional. Wird nur für lokale Anzeige verwendet, nicht in Discord.
 
 **Schritt 5: UDP-Listener auf deinem PC starten**
 ```bash
