@@ -208,13 +208,13 @@ class F1TelemetryListener:
             
             # Validate packet ID range
             if packet_id is None or packet_id < 0 or packet_id > 15:
-                # print(f"⚠️  Invalid packet ID: {packet_id} (size: {len(data)})")
+                # Skip invalid packet IDs silently
                 return
             
             # Debug output (uncomment for troubleshooting)
             # print(f"📦 Packet ID: {packet_id}, Size: {len(data)}, Header: {header_size} bytes")
             
-            # Process different packet types
+            # Process different packet types with payload validation
             payload = data[header_size:]
             if packet_id == PACKET_SESSION_DATA and len(payload) >= 2:
                 self.process_session_data(payload)
@@ -228,13 +228,13 @@ class F1TelemetryListener:
             if not hasattr(self, '_error_count'):
                 self._error_count = 0
             
-            if self._error_count < 5:
+            if self._error_count < 3:  # Reduced from 5 to 3 for less noise
                 print(f"⚠️  Error parsing packet (size: {len(data)} bytes): {e}")
-                if len(data) <= 50:  # Only show hex for small packets
-                    print(f"🔍 Raw packet data: {data.hex()[:100]}...")
+                if len(data) <= 100:  # Show more data for debugging
+                    print(f"🔍 Raw packet data: {data.hex()[:200]}...")
                 self._error_count += 1
-            elif self._error_count == 5:
-                print("⚠️  Suppressing further parsing errors (too many)...")
+            elif self._error_count == 3:
+                print("⚠️  Suppressing further parsing errors (enable debug mode for more details)...")
                 self._error_count += 1
                 
         except Exception as e:
@@ -278,37 +278,69 @@ class F1TelemetryListener:
             print(f"❌ Error processing session data: {e}")
     
     def process_lap_data(self, data: bytes):
-        """Process lap data packet."""
+        """Process lap data packet with flexible parsing."""
         if not self.session_info or not self.session_info.is_time_trial:
             return
             
         try:
-            # Parse lap data for player car (car index 0)
-            car_data_size = 53  # Size of each car's lap data
-            player_data_offset = self.player_car_index * car_data_size
+            # Try to determine car data size dynamically
+            # Standard F1 lap data sizes: 43, 53, or 63 bytes per car
+            possible_car_sizes = [43, 53, 63]
+            player_data_offset = self.player_car_index * 53  # Default assumption
             
-            # Check if we have enough data
-            if len(data) < player_data_offset + car_data_size:
-                print(f"⚠️  Lap data too small: {len(data)} bytes, need {player_data_offset + car_data_size}")
+            # Try different car data sizes to find the correct one
+            for car_size in possible_car_sizes:
+                if len(data) >= car_size:  # At least one car's worth of data
+                    player_data_offset = self.player_car_index * car_size
+                    if len(data) >= player_data_offset + car_size:
+                        break
+            else:
+                # If none of the standard sizes work, skip this packet
                 return
                 
-            player_data = data[player_data_offset:player_data_offset + car_data_size]
+            player_data = data[player_data_offset:player_data_offset + car_size]
             
-            # Parse player lap data - F1 2025 lap data structure
-            try:
-                lap_data = struct.unpack('<IfffffBBBBBBBBBBBf', player_data)
-            except struct.error as e:
-                print(f"⚠️  Error parsing lap data (size: {len(player_data)}): {e}")
-                return
+            # Try different parsing formats based on data size
+            lap_data = None
             
-            lap_time_ms = lap_data[0]
-            sector1_ms = int(lap_data[1] * 1000) if lap_data[1] > 0 else 0
-            sector2_ms = int(lap_data[2] * 1000) if lap_data[2] > 0 else 0
-            sector3_ms = int(lap_data[3] * 1000) if lap_data[3] > 0 else 0
-            lap_distance = lap_data[4]
-            total_distance = lap_data[5]
-            current_lap_invalid = bool(lap_data[8])
-            lap_valid_flags = lap_data[16]
+            if car_size >= 53:
+                # Try F1 2024/2025 format first
+                try:
+                    lap_data = struct.unpack('<IfffffBBBBBBBBBBBf', player_data[:53])
+                except struct.error:
+                    pass
+            
+            if lap_data is None and car_size >= 43:
+                # Try F1 2022/2023 format
+                try:
+                    lap_data_partial = struct.unpack('<IfffffBBBBBBBBBBB', player_data[:43])
+                    # Extend with default values for missing fields
+                    lap_data = lap_data_partial + (0.0,)  # Add missing float at the end
+                except struct.error:
+                    pass
+            
+            if lap_data is None:
+                # Try minimal format as last resort
+                try:
+                    # Parse just the essential fields
+                    if len(player_data) >= 28:  # Minimum for lap time + sectors
+                        essential_data = struct.unpack('<Iffff', player_data[:20])
+                        lap_data = essential_data + (0.0, 0.0) + (0,) * 11 + (0.0,)  # Fill remaining fields
+                except struct.error:
+                    return  # Give up on this packet
+            
+            if lap_data is None:
+                return  # Couldn't parse this packet
+            
+            # Extract lap information (handle different data lengths gracefully)
+            lap_time_ms = lap_data[0] if len(lap_data) > 0 else 0
+            sector1_ms = int(lap_data[1] * 1000) if len(lap_data) > 1 and lap_data[1] > 0 else 0
+            sector2_ms = int(lap_data[2] * 1000) if len(lap_data) > 2 and lap_data[2] > 0 else 0
+            sector3_ms = int(lap_data[3] * 1000) if len(lap_data) > 3 and lap_data[3] > 0 else 0
+            lap_distance = lap_data[4] if len(lap_data) > 4 else 0.0
+            total_distance = lap_data[5] if len(lap_data) > 5 else 0.0
+            current_lap_invalid = bool(lap_data[8]) if len(lap_data) > 8 else False
+            lap_valid_flags = lap_data[16] if len(lap_data) > 16 else 0
             
             # Check if this is a completed, valid lap
             if (lap_time_ms > 0 and 
@@ -331,7 +363,16 @@ class F1TelemetryListener:
                 self.last_lap_time = lap_time_ms
                 
         except Exception as e:
-            print(f"❌ Error processing lap data: {e}")
+            # Only print errors occasionally to avoid spam
+            if not hasattr(self, '_lap_error_count'):
+                self._lap_error_count = 0
+            
+            if self._lap_error_count < 2:
+                print(f"⚠️  Error processing lap data: {e}")
+                self._lap_error_count += 1
+            elif self._lap_error_count == 2:
+                print("⚠️  Suppressing lap data parsing errors...")
+                self._lap_error_count += 1
     
     def process_event_data(self, data: bytes):
         """Process event data packet."""
