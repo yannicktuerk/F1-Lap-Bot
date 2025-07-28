@@ -75,11 +75,11 @@ class F1TelemetryListener:
             1: "jeddah",
             2: "australia",
             3: "baku",
-            4: "miami",
-            5: "imola",
-            6: "monaco",
-            7: "spain",
-            8: "canada",
+            4: "spain",     # Fixed: Spain, not Miami
+            5: "miami",     # Fixed: Miami is track 5
+            6: "imola",
+            7: "monaco",
+            8: "canada", 
             9: "austria",
             10: "silverstone",
             11: "hungary",
@@ -281,7 +281,9 @@ class F1TelemetryListener:
     def process_event_data_official(self, packet: PacketEventData):
         """Process event data packet using f1-packets official classes."""
         try:
-            event_code = packet.m_eventStringCode.decode('ascii', errors='ignore')
+            # Use correct field name from f1-packets library
+            event_code_bytes = bytes(packet.event_string_code)
+            event_code = event_code_bytes.decode('ascii', errors='ignore').strip('\x00')
             
             if event_code == "SSTA":  # Session Started
                 print("🚀 Session started")
@@ -299,47 +301,44 @@ class F1TelemetryListener:
         try:
             print(f"\n🏆 TIME TRIAL PACKET DETECTED (OFFICIAL)!")
             
-            # Get the player session best (first data set)
-            if len(packet.m_timeTrialData) > 0:
-                player_data = packet.m_timeTrialData[0]  # Player Session Best
+            # Access the correct field names from f1-packets library
+            player_data = packet.player_session_best_data_set
+            
+            car_idx = player_data.m_carIdx
+            team_id = player_data.m_teamId
+            lap_time_ms = player_data.m_lapTimeInMS
+            sector1_ms = player_data.m_sector1TimeInMS
+            sector2_ms = player_data.m_sector2TimeInMS
+            sector3_ms = player_data.m_sector3TimeInMS
+            traction_control = player_data.m_tractionControl
+            gearbox_assist = player_data.m_gearboxAssist
+            anti_lock_brakes = player_data.m_antiLockBrakes
+            equal_car_performance = player_data.m_equalCarPerformance
+            custom_setup = player_data.m_customSetup
+            valid = player_data.m_valid
+            
+            print(f"🚗 Car Index: {car_idx}, Team: {team_id}")
+            
+            if valid and lap_time_ms > 0:
+                print(f"⏱️  Session Best: {self.format_time(lap_time_ms)}")
+                print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
+                print(f"🎮 Assists: TC:{traction_control}, Gearbox:{gearbox_assist}, ABS:{anti_lock_brakes}")
                 
-                car_idx = player_data.m_carIdx
-                team_id = player_data.m_teamId
-                lap_time_ms = player_data.m_lapTimeInMS
-                sector1_ms = player_data.m_sector1TimeInMS
-                sector2_ms = player_data.m_sector2TimeInMS
-                sector3_ms = player_data.m_sector3TimeInMS
-                traction_control = player_data.m_tractionControl
-                gearbox_assist = player_data.m_gearboxAssist
-                anti_lock_brakes = player_data.m_antiLockBrakes
-                equal_car_performance = player_data.m_equalCarPerformance
-                custom_setup = player_data.m_customSetup
-                valid = player_data.m_valid
-                
-                print(f"🚗 Car Index: {car_idx}, Team: {team_id}")
-                
-                if valid and lap_time_ms > 0:
-                    print(f"⏱️  Session Best: {self.format_time(lap_time_ms)}")
-                    print(f"🎯 Sectors: S1: {self.format_time(sector1_ms)} | S2: {self.format_time(sector2_ms)} | S3: {self.format_time(sector3_ms)}")
-                    print(f"🎮 Assists: TC:{traction_control}, Gearbox:{gearbox_assist}, ABS:{anti_lock_brakes}")
+                # If we don't have session info yet, create it for Time Trial
+                if not self.session_info or not self.session_info.is_time_trial:
+                    # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
+                    self.session_info = SessionInfo(
+                        session_type=10,  # Time Trial
+                        track_id=-1,     # Unknown from this packet
+                        session_uid=session_uid,  # Use parsed session_uid from header
+                        is_time_trial=True,
+                        track_name="time_trial"  # Generic name until we get track info
+                    )
                     
-                    # If we don't have session info yet, create it for Time Trial
-                    if not self.session_info or not self.session_info.is_time_trial:
-                        # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
-                        self.session_info = SessionInfo(
-                            session_type=10,  # Time Trial
-                            track_id=-1,     # Unknown from this packet
-                            session_uid=packet.header.m_sessionUID,
-                            is_time_trial=True,
-                            track_name="time_trial"  # Generic name until we get track info
-                        )
-                        
-                        print(f"✅ TIME TRIAL MODE CONFIRMED!")
-                        print(f"🎯 Ready to capture lap times!\n")
-                else:
-                    print(f"⚠️  No valid session best yet")
+                    print(f"✅ TIME TRIAL MODE CONFIRMED!")
+                    print(f"🎯 Ready to capture lap times!\n")
             else:
-                print(f"⚠️  No time trial data available in packet")
+                print(f"⚠️  No valid session best yet")
                 
         except Exception as e:
             print(f"❌ Error processing Time Trial data: {e}")
