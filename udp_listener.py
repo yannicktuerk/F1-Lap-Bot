@@ -164,47 +164,50 @@ class F1TelemetryListener:
             return
         
         try:
-            # Try different header formats based on actual F1 game versions
+            # Analyze the actual packet structure from the hex data
+            # Raw data: e9071901090103441e8784adbd5b14df965e43aa260000aa26000000ff4255544e...
+            # This suggests: [e907] [1901] [09] [01] [03] [44] ...
             packet_id = None
             header_size = 24
             
-            # Try F1 2025 format first (most common)
+            # Try F1 2025 format with corrected structure
             if len(data) >= 24:
                 try:
-                    header = struct.unpack('<HHBBBBBQ', data[:24])
-                    packet_format = header[0]
-                    game_major_version = header[1] 
-                    game_minor_version = header[2]
-                    packet_version = header[3]
-                    packet_id = header[4]
-                    session_uid = header[5]
-                    session_time = header[6]
-                    frame_identifier = header[7]
+                    # Format: packet_format(H), game_version(H), packet_version(B), packet_id(B), session_uid(Q), session_time(f), frame_id(I)
+                    header = struct.unpack('<HHBBQfI', data[:24])
+                    packet_format = header[0]  # e907 = 2025 in little endian
+                    game_version = header[1]   # 1901 = 2019?
+                    packet_version = header[2]  # 09
+                    packet_id = header[3]      # 01
+                    session_uid = header[4]
+                    session_time = header[5]
+                    frame_identifier = header[6]
                     
-                    # Accept various F1 game formats (not just 2025)
+                    # Accept various F1 game formats
                     if packet_format in [2019, 2020, 2021, 2022, 2023, 2024, 2025]:
                         header_size = 24
                     else:
+                        # Try alternative interpretation
                         raise struct.error("Unknown packet format")
                         
                 except struct.error:
-                    # Try alternative header format (some F1 versions use different layouts)
-                    if len(data) >= 23:
-                        try:
-                            # Alternative format: <HHBBBBBII (23 bytes)
-                            header = struct.unpack('<HHBBBBBII', data[:23])
-                            packet_format = header[0]
-                            packet_id = header[4]
-                            header_size = 23
-                        except struct.error:
-                            # Try minimal header (20 bytes)
-                            if len(data) >= 20:
-                                header = struct.unpack('<HHBBBBIIH', data[:20])
-                                packet_format = header[0]
-                                packet_id = header[4]
-                                header_size = 20
-                            else:
-                                raise struct.error("Cannot parse any known header format")
+                    # Try simpler format based on actual data pattern
+                    try:
+                        # Let's try a different interpretation of the header
+                        # Based on hex: e907 1901 09 01 03 44 1e 87...
+                        header = struct.unpack('<HHBBBBBB', data[:8])
+                        packet_format = header[0]  # e907
+                        game_version = header[1]   # 1901 
+                        packet_version = header[2] # 09
+                        packet_id = header[3]      # 01
+                        header_size = 24  # Still assume 24 byte header
+                    except struct.error:
+                        # Last resort: minimal parsing
+                        if len(data) >= 4:
+                            packet_id = data[3]  # 4th byte as packet ID
+                            header_size = 24
+                        else:
+                            raise struct.error("Cannot parse packet header")
             
             # Validate packet ID range
             if packet_id is None or packet_id < 0 or packet_id > 15:
