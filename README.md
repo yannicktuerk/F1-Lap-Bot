@@ -273,6 +273,111 @@ python -m pytest tests/ --cov=src/
 - **Infrastructure Layer:** Integration Tests mit echten Dependencies
 - **Testing Pyramid:** 70% Unit / 20% Integration / 10% E2E
 
+## 🎮 F1 2025 UDP Telemetrie Integration
+
+### Automatische Rundenzeit-Erfassung aus F1 2025
+
+Der Bot kann automatisch Rundenzeiten direkt aus F1 2025 (Time Trial Mode) über UDP Telemetrie erfassen.
+
+#### 🚀 Setup-Anleitung
+
+**Schritt 1: F1 2025 Telemetrie aktivieren**
+1. Starte F1 2025
+2. Gehe zu **Einstellungen** → **Telemetrie**
+3. Aktiviere **UDP Telemetrie Output**
+4. Port: `20777` (Standard)
+5. IP-Adresse: `127.0.0.1` (für lokalen Betrieb)
+6. Format: **2025** (neuestes Format)
+
+**Schritt 2: Telemetrie-Listener starten**
+```bash
+# Terminal 1: Telemetrie-Listener starten
+python udp_listener.py
+
+# Terminal 2: Discord Bot starten (parallel)
+python src/main.py
+```
+
+**Schritt 3: Time Trial Session starten**
+1. Wähle **Time Trial** im F1 2025 Hauptmenü
+2. Wähle eine Strecke (z.B. Monaco)
+3. Fahre gültige Runden
+4. **Rundenzeiten werden automatisch erfasst!**
+
+#### ✅ Was wird erfasst?
+
+- ✅ **Nur Time Trial Sessions** - Andere Modi werden ignoriert
+- ✅ **Nur gültige Runden** - Corner Cutting, Flashbacks etc. werden gefiltert
+- ✅ **Zeitbereich 30s - 5min** - Unrealistische Zeiten werden verworfen
+- ✅ **Sektor-Zeiten** - S1, S2, S3 werden mit angezeigt
+- ✅ **Track-Erkennung** - Automatische Zuordnung zur richtigen Strecke
+
+#### 🚫 Was wird NICHT erfasst?
+
+- ❌ **Rennen/Qualifying** - Nur Time Trial Mode
+- ❌ **Ungültige Runden** - Corner Cutting, Wall Riding, Flashbacks
+- ❌ **Practice Sessions** - Nur dedizierte Time Trials
+- ❌ **Pause/Replay** - Nur aktive Fahrzeiten
+
+#### 🛠️ Erweiterte Konfiguration
+
+**Bot-Integration aktivieren:**
+```python
+# udp_listener.py bearbeiten
+listener = F1TelemetryListener(port=20777, bot_integration=True)
+```
+
+**Custom Port verwenden:**
+```python
+# Falls F1 2025 einen anderen Port verwendet
+listener = F1TelemetryListener(port=CUSTOM_PORT, bot_integration=False)
+```
+
+#### 🔧 Troubleshooting
+
+**Problem: Keine Telemetrie-Daten empfangen**
+- ✅ F1 2025 UDP Telemetrie ist aktiviert
+- ✅ Port 20777 ist nicht blockiert (Firewall)
+- ✅ Time Trial Session ist aktiv
+- ✅ `udp_listener.py` läuft vor dem Spielstart
+
+**Problem: Runden werden nicht erfasst**
+- ✅ Session Type ist "Time Trial" (nicht Practice)
+- ✅ Runden sind gültig (keine Corner Cuts)
+- ✅ Rundenzeiten liegen zwischen 30s und 5min
+
+**Problem: Falsche Strecke erkannt**
+- ✅ Track-Mapping in `udp_listener.py` prüfen
+- ✅ F1 2025 Track-IDs entsprechen Bot-Strecken
+
+#### 📊 Ausgabe-Beispiel
+
+```
+🏎️ F1 2025 Telemetry Listener started on port 20777
+🎯 Monitoring for Time Trial sessions...
+
+🏁 Time Trial session detected!
+📍 Track: Monaco (ID: 6)
+🎮 Session Type: Time Trial
+✅ Ready to capture lap times!
+
+🏆 Valid lap completed!
+⏱️  Time: 1:23.456
+📍 Track: Monaco
+🎯 Sectors: S1: 28.123 | S2: 31.456 | S3: 23.877
+💡 Bot integration disabled - lap time not submitted automatically
+📝 To submit manually: /lap submit 1:23.456 monaco
+```
+
+#### 🔗 Integration mit Discord Bot
+
+Für vollautomatische Integration:
+1. `bot_integration=True` in `udp_listener.py` setzen
+2. Bot-API-Endpunkt konfigurieren (TODO)
+3. User-Mapping einrichten (Discord User ↔ Telemetrie)
+
+---
+
 ## 🔄 Changelog
 
 ### v1.6.0 (2025-07-24)

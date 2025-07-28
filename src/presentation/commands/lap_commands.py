@@ -1061,7 +1061,7 @@ class LapCommands(commands.Cog):
     
     @app_commands.command(name="init", description="Initialize leaderboard in this channel (Admin only)")
     @app_commands.describe(channel="Channel to set as leaderboard channel (optional)")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(manage_guild=True)
     async def init_leaderboard(
         self,
         interaction: discord.Interaction,
@@ -1895,7 +1895,7 @@ class LapCommands(commands.Cog):
     
     @app_commands.command(name="reset", description="🗑️ Reset all lap times and data (Admin only)")
     @app_commands.describe(password="Security password required for database reset")
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def reset_database(self, interaction: discord.Interaction, password: str):
         """Reset all lap times and data - ADMIN ONLY with password protection."""
         await interaction.response.defer(ephemeral=True)  # Make this ephemeral for security

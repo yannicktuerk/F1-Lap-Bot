@@ -94,6 +94,58 @@ class F1LapBot(commands.Bot):
         print(f"❌ Command error: {error}")
         await ctx.send("❌ An error occurred while processing your command.")
     
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        """Global error handler for application commands (slash commands)."""
+        try:
+            # Create a user-friendly error embed
+            embed = discord.Embed(
+                title="❌ Error",
+                color=discord.Color.red()
+            )
+            
+            if isinstance(error, discord.app_commands.CommandOnCooldown):
+                embed.description = f"This command is on cooldown. Try again in {error.retry_after:.1f} seconds."
+            elif isinstance(error, discord.app_commands.MissingPermissions):
+                embed.description = f"You don't have the required permissions: {', '.join(error.missing_permissions)}"
+            elif isinstance(error, discord.app_commands.BotMissingPermissions):
+                embed.description = f"I don't have the required permissions: {', '.join(error.missing_permissions)}"
+            elif isinstance(error, discord.app_commands.NoPrivateMessage):
+                embed.description = "This command cannot be used in private messages."
+            elif isinstance(error, discord.app_commands.CommandNotFound):
+                embed.description = "Unknown command. Use `/lap help` to see available commands."
+            else:
+                # Generic error message for unexpected errors
+                embed.description = "An unexpected error occurred. Please try again later."
+                embed.add_field(
+                    name="🔧 Help",
+                    value="If this error persists, please contact the bot developer.",
+                    inline=False
+                )
+                
+                # Log the full error for debugging
+                print(f"❌ Unhandled app command error: {type(error).__name__}: {error}")
+                print(f"   Command: /{interaction.command.name if interaction.command else 'unknown'}")
+                print(f"   User: {interaction.user} ({interaction.user.id})")
+                print(f"   Guild: {interaction.guild.name if interaction.guild else 'DM'} ({interaction.guild_id})")
+            
+            # Send error response
+            if interaction.response.is_done():
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            # Fallback if even error handling fails
+            print(f"❌ Error in error handler: {e}")
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        "❌ A critical error occurred. Please try again.", 
+                        ephemeral=True
+                    )
+            except:
+                pass  # Ultimate fallback - just log and continue
+    
     def get_leaderboard_channel(self) -> Optional[discord.TextChannel]:
         """Get the configured leaderboard channel."""
         if not self.leaderboard_channel_id:
