@@ -349,14 +349,25 @@ class F1TelemetryListener:
                 
                 # Don't override session info if we already have proper track data from session packet
                 if not self.session_info:
-                    # We don't know the exact track from Time Trial packet, but we know it's Time Trial!
+                    # F1 2025 Time Trial doesn't send Session Data packets!
+                    # Ask user for track name or use a default
+                    print("⚠️  F1 2025 Time Trial mode doesn't provide track information!")
+                    print("📝 Please specify track name in config.json or use manual submission")
+                    
+                    # Try to get track from config or use spain as fallback
+                    config = load_config()
+                    fallback_track = config.get('default_track', 'spain')
+                    
                     self.session_info = SessionInfo(
                         session_type=10,  # Time Trial
                         track_id=-1,     # Unknown from this packet
                         session_uid=0,   # Unknown from this packet
                         is_time_trial=True,
-                        track_name="time_trial"  # Generic name until we get track info
+                        track_name=fallback_track  # Use config fallback
                     )
+                    
+                    print(f"🔧 Using fallback track: {fallback_track}")
+                    print(f"💡 To change track: Add 'default_track': 'track_name' to config.json")
                     
                     print(f"✅ TIME TRIAL MODE CONFIRMED!")
                     print(f"🎯 Ready to capture lap times!\n")
