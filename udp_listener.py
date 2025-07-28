@@ -214,8 +214,8 @@ class F1TelemetryListener:
                 # Skip invalid packet IDs silently
                 return
             
-            # Debug output (uncomment for troubleshooting)
-            # print(f"📦 Packet ID: {packet_id}, Size: {len(data)}, Header: {header_size} bytes")
+            # Debug output - show what we're receiving
+            print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes, Format: {packet_format if 'packet_format' in locals() else 'unknown'}")
             
             # Process different packet types with payload validation
             payload = data[header_size:]
@@ -253,6 +253,16 @@ class F1TelemetryListener:
             # Parse session data (simplified structure)
             session_type = struct.unpack('<B', data[0:1])[0]
             track_id = struct.unpack('<B', data[1:2])[0]  # Changed to unsigned byte
+            
+            # Debug output
+            session_type_names = {
+                1: "Practice 1", 2: "Practice 2", 3: "Practice 3", 4: "Short Practice",
+                5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
+                9: "OSQ", 10: "Time Trial", 12: "Race", 13: "Race 2"
+            }
+            session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
+            track_name = self.track_mapping.get(track_id, f"track_{track_id}")
+            print(f"🎮 Session: {session_name}, Track: {track_name} (ID: {track_id})")
             
             # Check if this is a time trial session
             is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
