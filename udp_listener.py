@@ -20,7 +20,7 @@ from f1.packets import (
 )
 
 # Session Types
-SESSION_TYPE_TIME_TRIAL = 10
+SESSION_TYPE_TIME_TRIAL = 18  # Fixed: F1 2025 uses 18, not 10
 SESSION_TYPE_PRACTICE_1 = 1
 SESSION_TYPE_PRACTICE_2 = 2
 SESSION_TYPE_PRACTICE_3 = 3
@@ -211,7 +211,7 @@ class F1TelemetryListener:
             session_type_names = {
                 1: "Practice 1", 2: "Practice 2", 3: "Practice 3", 4: "Short Practice",
                 5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
-                9: "OSQ", 10: "Time Trial", 12: "Race", 13: "Race 2"
+                9: "OSQ", 10: "Old Time Trial", 12: "Race", 13: "Race 2", 18: "Time Trial"
             }
             
             session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
