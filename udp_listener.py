@@ -304,18 +304,19 @@ class F1TelemetryListener:
             # Access the correct field names from f1-packets library
             player_data = packet.player_session_best_data_set
             
-            car_idx = player_data.m_carIdx
-            team_id = player_data.m_teamId
-            lap_time_ms = player_data.m_lapTimeInMS
-            sector1_ms = player_data.m_sector1TimeInMS
-            sector2_ms = player_data.m_sector2TimeInMS
-            sector3_ms = player_data.m_sector3TimeInMS
-            traction_control = player_data.m_tractionControl
-            gearbox_assist = player_data.m_gearboxAssist
-            anti_lock_brakes = player_data.m_antiLockBrakes
-            equal_car_performance = player_data.m_equalCarPerformance
-            custom_setup = player_data.m_customSetup
-            valid = player_data.m_valid
+            # Use correct field names for TimeTrialDataSet (no 'm_' prefix)
+            car_idx = player_data.car_idx
+            team_id = player_data.team_id
+            lap_time_ms = player_data.lap_time_in_ms
+            sector1_ms = player_data.sector1_time_in_ms
+            sector2_ms = player_data.sector2_time_in_ms
+            sector3_ms = player_data.sector3_time_in_ms
+            traction_control = player_data.traction_control
+            gearbox_assist = player_data.gearbox_assist
+            anti_lock_brakes = player_data.anti_lock_brakes
+            equal_car_performance = player_data.equal_car_performance
+            custom_setup = player_data.custom_setup
+            valid = player_data.valid
             
             print(f"🚗 Car Index: {car_idx}, Team: {team_id}")
             
@@ -330,7 +331,7 @@ class F1TelemetryListener:
                     self.session_info = SessionInfo(
                         session_type=10,  # Time Trial
                         track_id=-1,     # Unknown from this packet
-                        session_uid=session_uid,  # Use parsed session_uid from header
+                        session_uid=0,   # Unknown from this packet
                         is_time_trial=True,
                         track_name="time_trial"  # Generic name until we get track info
                     )
