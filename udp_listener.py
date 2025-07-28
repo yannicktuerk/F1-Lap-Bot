@@ -159,38 +159,84 @@ class F1TelemetryListener:
             print("🛑 Telemetry listener stopped")
     
     def process_packet(self, data: bytes):
-        """Process incoming UDP packet."""
-        if len(data) < 24:  # Minimum packet size
+        """Process incoming UDP packet with robust header parsing."""
+        if len(data) < 20:  # Absolute minimum packet size
             return
         
         try:
-            # Parse packet header - F1 2025 format
-            header = struct.unpack('<HHBBBBBQ', data[:24])
-            packet_format = header[0]
-            game_major_version = header[1] 
-            game_minor_version = header[2]
-            packet_version = header[3]
-            packet_id = header[4]
-            session_uid = header[5]
-            session_time = header[6]
-            frame_identifier = header[7]
+            # Try different header formats based on actual F1 game versions
+            packet_id = None
+            header_size = 24
             
-            # Debug: Print packet info for troubleshooting
-            # print(f"📦 Packet ID: {packet_id}, Size: {len(data)}, Format: {packet_format}")
+            # Try F1 2025 format first (most common)
+            if len(data) >= 24:
+                try:
+                    header = struct.unpack('<HHBBBBBQ', data[:24])
+                    packet_format = header[0]
+                    game_major_version = header[1] 
+                    game_minor_version = header[2]
+                    packet_version = header[3]
+                    packet_id = header[4]
+                    session_uid = header[5]
+                    session_time = header[6]
+                    frame_identifier = header[7]
+                    
+                    # Accept various F1 game formats (not just 2025)
+                    if packet_format in [2019, 2020, 2021, 2022, 2023, 2024, 2025]:
+                        header_size = 24
+                    else:
+                        raise struct.error("Unknown packet format")
+                        
+                except struct.error:
+                    # Try alternative header format (some F1 versions use different layouts)
+                    if len(data) >= 23:
+                        try:
+                            # Alternative format: <HHBBBBBII (23 bytes)
+                            header = struct.unpack('<HHBBBBBII', data[:23])
+                            packet_format = header[0]
+                            packet_id = header[4]
+                            header_size = 23
+                        except struct.error:
+                            # Try minimal header (20 bytes)
+                            if len(data) >= 20:
+                                header = struct.unpack('<HHBBBBIIH', data[:20])
+                                packet_format = header[0]
+                                packet_id = header[4]
+                                header_size = 20
+                            else:
+                                raise struct.error("Cannot parse any known header format")
+            
+            # Validate packet ID range
+            if packet_id is None or packet_id < 0 or packet_id > 15:
+                # print(f"⚠️  Invalid packet ID: {packet_id} (size: {len(data)})")
+                return
+            
+            # Debug output (uncomment for troubleshooting)
+            # print(f"📦 Packet ID: {packet_id}, Size: {len(data)}, Header: {header_size} bytes")
             
             # Process different packet types
-            if packet_id == PACKET_SESSION_DATA:
-                self.process_session_data(data[24:])
-            elif packet_id == PACKET_LAP_DATA:
-                self.process_lap_data(data[24:])
-            elif packet_id == PACKET_EVENT:
-                self.process_event_data(data[24:])
+            payload = data[header_size:]
+            if packet_id == PACKET_SESSION_DATA and len(payload) >= 2:
+                self.process_session_data(payload)
+            elif packet_id == PACKET_LAP_DATA and len(payload) >= 50:
+                self.process_lap_data(payload)
+            elif packet_id == PACKET_EVENT and len(payload) >= 4:
+                self.process_event_data(payload)
                 
         except struct.error as e:
-            print(f"⚠️  Error parsing packet (size: {len(data)} bytes): {e}")
-            # Enable debug mode to see what packets we're getting
-            if len(data) < 50:  # Only print small packets for debugging
-                print(f"🔍 Raw packet data: {data.hex()[:100]}...")
+            # Only show error for first few packets to avoid spam
+            if not hasattr(self, '_error_count'):
+                self._error_count = 0
+            
+            if self._error_count < 5:
+                print(f"⚠️  Error parsing packet (size: {len(data)} bytes): {e}")
+                if len(data) <= 50:  # Only show hex for small packets
+                    print(f"🔍 Raw packet data: {data.hex()[:100]}...")
+                self._error_count += 1
+            elif self._error_count == 5:
+                print("⚠️  Suppressing further parsing errors (too many)...")
+                self._error_count += 1
+                
         except Exception as e:
             print(f"❌ Unexpected error processing packet: {e}")
     
