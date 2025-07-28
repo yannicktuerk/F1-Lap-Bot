@@ -116,6 +116,27 @@ python src/main.py
 
 For users who only need the telemetry listener:
 
+#### Option 2A: Complete Package (Recommended)
+📦 **ZIP Package**: [f1-udp-listener-v1.0.zip](https://github.com/yannicktuerk/F1-Lap-Bot/raw/main/f1-udp-listener-v1.0.zip)
+
+Includes:
+- `udp_listener.py` - Main telemetry script
+- `requirements.txt` - Python dependencies  
+- `config_example.json` - Configuration template
+- `setup.bat` - Automated Windows setup
+- `start.bat` - Easy launcher for Windows
+- `README.md` - Detailed instructions
+
+```bash
+# Windows: Double-click setup.bat to install
+# Or manually:
+pip install -r requirements.txt
+mv config_example.json config.json
+# Edit config.json with your settings
+python udp_listener.py
+```
+
+#### Option 2B: Single File Download
 📥 **Direct Download**: [udp_listener.py](https://raw.githubusercontent.com/yannicktuerk/F1-Lap-Bot/main/udp_listener.py)
 
 ```bash

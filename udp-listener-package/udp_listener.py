@@ -573,18 +573,16 @@ def main():
     discord_user_id = config.get('discord_user_id')
     bot_api_url = config.get('bot_api_url')
     port = config.get('port', 20777)
-    bot_integration = config.get('bot_integration', False)
     player_name = config.get('player_name', 'Unknown Player')
     
-    if bot_integration and discord_user_id:
+    if discord_user_id:
         print(f"🤖 Bot integration: ENABLED")
         print(f"👤 Player: {player_name}")
         print(f"📱 Discord User ID: {discord_user_id}")
         print(f"🌐 Bot Server: {bot_api_url}")
     else:
-        print("📝 Bot integration: DISABLED (manual submission required)")
-        if bot_integration and not discord_user_id:
-            print("❌ Discord User ID missing - check config.json")
+        print("❌ Bot integration: DISABLED - Discord User ID missing")
+        print("📝 Configure discord_user_id in config.json to enable automatic submission")
     
     print("\n⚙️  Setup Instructions:")
     print("1. Enable UDP telemetry in F1 2025 settings")
@@ -594,7 +592,7 @@ def main():
     
     listener = F1TelemetryListener(
         port=port, 
-        bot_integration=bot_integration,
+        bot_integration=True,  # Always enabled
         discord_user_id=discord_user_id,
         bot_api_url=bot_api_url
     )
