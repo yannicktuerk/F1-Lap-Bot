@@ -164,16 +164,19 @@ class F1TelemetryListener:
             return
         
         try:
-            # Parse packet header
+            # Parse packet header - F1 2025 format
             header = struct.unpack('<HHBBBBBQ', data[:24])
             packet_format = header[0]
-            game_major_version = header[1]
+            game_major_version = header[1] 
             game_minor_version = header[2]
             packet_version = header[3]
             packet_id = header[4]
             session_uid = header[5]
             session_time = header[6]
             frame_identifier = header[7]
+            
+            # Debug: Print packet info for troubleshooting
+            # print(f"📦 Packet ID: {packet_id}, Size: {len(data)}, Format: {packet_format}")
             
             # Process different packet types
             if packet_id == PACKET_SESSION_DATA:
@@ -184,16 +187,23 @@ class F1TelemetryListener:
                 self.process_event_data(data[24:])
                 
         except struct.error as e:
-            print(f"⚠️  Error parsing packet: {e}")
+            print(f"⚠️  Error parsing packet (size: {len(data)} bytes): {e}")
+            # Enable debug mode to see what packets we're getting
+            if len(data) < 50:  # Only print small packets for debugging
+                print(f"🔍 Raw packet data: {data.hex()[:100]}...")
         except Exception as e:
             print(f"❌ Unexpected error processing packet: {e}")
     
     def process_session_data(self, data: bytes):
         """Process session data packet."""
         try:
+            # Check minimum data length for session data
+            if len(data) < 2:
+                return
+                
             # Parse session data (simplified structure)
             session_type = struct.unpack('<B', data[0:1])[0]
-            track_id = struct.unpack('<b', data[1:2])[0]
+            track_id = struct.unpack('<B', data[1:2])[0]  # Changed to unsigned byte
             
             # Check if this is a time trial session
             is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
@@ -231,13 +241,19 @@ class F1TelemetryListener:
             car_data_size = 53  # Size of each car's lap data
             player_data_offset = self.player_car_index * car_data_size
             
+            # Check if we have enough data
             if len(data) < player_data_offset + car_data_size:
+                print(f"⚠️  Lap data too small: {len(data)} bytes, need {player_data_offset + car_data_size}")
                 return
                 
             player_data = data[player_data_offset:player_data_offset + car_data_size]
             
-            # Parse player lap data
-            lap_data = struct.unpack('<IfffffBBBBBBBBBBBf', player_data)
+            # Parse player lap data - F1 2025 lap data structure
+            try:
+                lap_data = struct.unpack('<IfffffBBBBBBBBBBBf', player_data)
+            except struct.error as e:
+                print(f"⚠️  Error parsing lap data (size: {len(player_data)}): {e}")
+                return
             
             lap_time_ms = lap_data[0]
             sector1_ms = int(lap_data[1] * 1000) if lap_data[1] > 0 else 0

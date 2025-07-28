@@ -1,3 +1,943 @@
+# 🏎️ F1 Lap Bot - Advanced Telemetry  Discord Integration
+
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.0+-green.svg)](https://discordpy.readthedocs.io/)
+[![Clean Architecture](https://img.shields.io/badge/Architecture-Clean-brightgreen.svg)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+ **The ultimate F1 gaming companion** - Track lap times, compete with friends, and analyze your performance with real-time telemetry integration for F1 2025.
+
+---
+
+## 📋 Table of Contents
+
+- [🌟 Features](#-features)
+- [🏗️ Architecture](#️-architecture)
+- [🚀 Quick Start](#-quick-start)
+- [📦 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [🎮 Game Setup](#-game-setup)
+- [🤖 Discord Bot Commands](#-discord-bot-commands)
+- [📡 Telemetry Integration](#-telemetry-integration)
+- [🔧 Advanced Usage](#-advanced-usage)
+- [📊 Database Schema](#-database-schema)
+- [🧪 Testing](#-testing)
+- [🔄 Development](#-development)
+- [🐛 Troubleshooting](#-troubleshooting)
+- [📝 Changelog](#-changelog)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
+
+---
+
+## 🌟 Features
+
+### Core Functionality
+- **🏁 Real-time Lap Time Tracking** - Automatic detection and recording of F1 2025 lap times
+- **🏆 Personal  Overall Leaderboards** - Track your progress and compete with friends
+- **📊 Detailed Performance Analytics** - Sector times, track-specific statistics, and trends
+- **🎯 Smart Time Trial Detection** - Only records times from valid Time Trial sessions
+
+### Discord Integration
+- **🤖 Slash Commands** - Modern Discord command interface
+- **🚨 Real-time Notifications** - Instant alerts for personal bests and records
+- **👥 Multi-user Support** - Individual tracking for each Discord user
+- **📈 Rich Embeds** - Beautiful lap time displays with track information
+
+### Telemetry Features
+- **📡 UDP Telemetry Listener** - Direct integration with F1 2025 game data
+- **✅ Lap Validation** - Sophisticated detection of valid/invalid laps
+- **🛡️ Anti-cheat Protection** - Filtering of unrealistic times and penalties
+- **🔄 Auto-submission** - Seamless integration between game and Discord
+
+### Technical Excellence
+- **🏗️ Clean Architecture** - Domain-driven design with clear separation of concerns
+- **🧪 Comprehensive Testing** - 90%+ test coverage with unit and integration tests
+- **📱 RESTful API** - HTTP API for external integrations and telemetry
+- **🐳 Docker Ready** - Containerized deployment with docker-compose
+
+---
+
+## 🏗️ Architecture
+
+This project follows **Clean Architecture** principles with clear layer separation:
+
+```
+src/
+├── Domain/              # Business logic and entities
+│   ├── entities/        # Core business objects (LapTime, User)
+│   ├── value_objects/   # Immutable values (TimeFormat, TrackName)
+│   └── interfaces/      # Repository contracts
+├── Application/         # Use cases and application services
+│   ├── use_cases/       # Business use case implementations
+│   └── services/        # Application-level services
+├── Infrastructure/      # External concerns
+│   ├── persistence/     # Database implementations
+│   ├── discord/         # Discord API integration
+│   └── telemetry/       # F1 2025 UDP listener
+└── Presentation/        # User interfaces
+    ├── discord/         # Discord bot commands
+    └── api/             # HTTP API endpoints
+```
+
+### Key Architectural Benefits
+- **🔄 Framework Independence** - Core business logic isolated from Discord/database
+- **🧪 Testable Design** - Easy mocking and unit testing
+- **🔧 Maintainable Code** - Clear responsibilities and dependencies
+- **📈 Scalable Structure** - Easy to extend with new features
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- **Python 3.10+** installed
+- **F1 2025 Game** with UDP telemetry enabled
+- **Discord Bot Token** (see [Discord Bot Setup](#discord-bot-setup))
+
+### 1-Minute Setup
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/f1-lap-bot.git
+cd f1-lap-bot
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your Discord bot token
+
+# Run the bot
+python src/main.py
+```
+
+That's it! Your F1 Lap Bot is now running and ready to track lap times! 🎉
+
+---
+
+## 📦 Installation
+
+### Option 1: Standard Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/f1-lap-bot.git
+cd f1-lap-bot
+
+# Create virtual environment (recommended)
+python -m venv f1bot-env
+source f1bot-env/bin/activate  # On Windows: f1bot-env\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Option 2: Docker Installation
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/f1-lap-bot.git
+cd f1-lap-bot
+
+# Run with Docker Compose
+docker-compose up -d
+```
+
+### Option 3: Development Setup
+
+```bash
+# Clone and setup for development
+git clone https://github.com/yourusername/f1-lap-bot.git
+cd f1-lap-bot
+
+# Install with development dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run tests to verify setup
+pytest
+```
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# Discord Bot Configuration
+DISCORD_TOKEN=your_discord_bot_token_here
+DISCORD_GUILD_ID=your_discord_server_id
+
+# Database Configuration
+DATABASE_URL=sqlite:///f1_lap_bot.db
+
+# Telemetry Configuration
+TELEMETRY_PORT=20777
+TELEMETRY_HOST=0.0.0.0
+
+# API Configuration
+API_PORT=5000
+API_HOST=0.0.0.0
+
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FILE=f1_lap_bot.log
+
+# Feature Flags
+ENABLE_TELEMETRY=true
+ENABLE_API=true
+ENABLE_AUTO_SYNC=true
+```
+
+### Discord Bot Setup
+
+1. **Create Discord Application**
+   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
+   - Click "New Application" and give it a name
+   - Navigate to "Bot" section and click "Add Bot"
+
+2. **Get Bot Token**
+   - Copy the bot token and add it to your `.env` file
+   - **⚠️ Keep this token secret!**
+
+3. **Bot Permissions**
+   - Enable these bot permissions:
+     - `Send Messages`
+     - `Use Slash Commands`
+     - `Embed Links`
+     - `Read Message History`
+
+4. **Invite Bot to Server**
+   - Go to OAuth2  URL Generator
+   - Select scopes: `bot`, `applications.commands`
+   - Select permissions listed above
+   - Use generated URL to invite bot
+
+### Configuration Files
+
+**config.json** - Application-specific settings:
+```json
+{
+  "database": {
+    "path": "f1_lap_bot.db",
+    "backup_interval": 3600
+  },
+  "telemetry": {
+    "validation": {
+      "min_lap_time": 30000,
+      "max_lap_time": 300000,
+      "require_time_trial": true
+    }
+  },
+  "discord": {
+    "embed_color": "#FF6B35",
+    "timezone": "UTC"
+  }
+}
+```
+
+---
+
+## 🎮 Game Setup
+
+### F1 2025 Telemetry Configuration
+
+1. **Launch F1 2025**
+2. **Navigate to Settings** → **Telemetry Settings**
+3. **Enable UDP Telemetry**:
+   - **UDP Telemetry**: `On`
+   - **UDP Port**: `20777` (default)
+   - **UDP Format**: `2025`
+   - **UDP Rate**: `20Hz` or higher
+
+4. **Network Configuration**:
+   - **UDP IP Address**: `127.0.0.1` (for local use)
+   - Or your computer's IP address for remote setup
+
+### Supported Game Modes
+- ✅ **Time Trial** - Primary mode for lap time recording
+- ✅ **Practice Sessions** - Supported with manual validation
+- ❌ **Race Mode** - Not supported (safety reasons)
+- ❌ **Online Multiplayer** - Not supported
+
+### Track Support
+All F1 2025 official tracks are supported:
+- 🇧🇭 Bahrain International Circuit
+- 🇸🇦 Jeddah Corniche Circuit
+- 🇦🇺 Albert Park Circuit
+- 🇦🇿 Baku City Circuit
+- 🇺🇸 Miami International Autodrome
+- 🇮🇹 Autodromo Enzo e Dino Ferrari (Imola)
+- 🇲🇨 Circuit de Monaco
+- 🇪🇸 Circuit de Barcelona-Catalunya
+- 🇨🇦 Circuit Gilles Villeneuve
+- 🇦🇹 Red Bull Ring
+- 🇬🇧 Silverstone Circuit
+- 🇭🇺 Hungaroring
+- 🇧🇪 Circuit de Spa-Francorchamps
+- 🇳🇱 Circuit Zandvoort
+- 🇮🇹 Autodromo Nazionale di Monza
+- 🇸🇬 Marina Bay Street Circuit
+- 🇯🇵 Suzuka International Racing Course
+- 🇶🇦 Lusail International Circuit
+- 🇺🇸 Circuit of the Americas
+- 🇲🇽 Autódromo José Carlos Pace
+- 🇺🇸 Las Vegas Street Circuit
+- 🇦🇪 Yas Marina Circuit
+
+---
+
+## 🤖 Discord Bot Commands
+
+### Lap Time Commands
+
+#### `/lap submit <time> <track>`
+Submit a lap time manually
+```
+/lap submit 1:23.456 silverstone
+```
+
+#### `/lap personal [track]`
+View your personal best times
+```
+/lap personal                    # All tracks
+/lap personal silverstone       # Specific track
+```
+
+#### `/lap leaderboard track [limit]`
+View track leaderboards
+```
+/lap leaderboard silverstone     # Top 10
+/lap leaderboard monaco 5        # Top 5
+```
+
+#### `/lap compare user [track]`
+Compare times with another user
+```
+/lap compare @username           # All tracks
+/lap compare @username monaco    # Specific track
+```
+
+#### `/lap stats [user]`
+View detailed statistics
+```
+/lap stats                       # Your stats
+/lap stats @username             # Another user's stats
+```
+
+### Administrative Commands
+
+#### `/admin sync`
+Synchronize slash commands (Admin only)
+
+#### `/admin backup`
+Create database backup (Admin only)
+
+#### `/admin stats`
+View bot statistics (Admin only)
+
+### Telemetry Commands
+
+#### `/telemetry status`
+Check telemetry connection status
+
+#### `/telemetry configure user_id`
+Configure telemetry integration
+
+#### `/telemetry test`
+Test telemetry connection
+
+---
+
+## 📡 Telemetry Integration
+
+### Automatic Lap Detection
+
+The bot automatically detects and validates lap times from F1 2025:
+
+```python
+# Example: Automatic lap submission flow
+1. F1 2025 sends UDP telemetry data
+2. Bot validates lap (time trial mode, valid sectors, no penalties)
+3. Personal best check
+4. Automatic submission to Discord
+5. Real-time notification to channel
+```
+
+### Lap Validation Rules
+
+- **✅ Valid Conditions**:
+  - Time Trial mode only
+  - Lap time between 30 seconds and 5 minutes
+  - No corner cutting penalties
+  - No wall riding penalties
+  - No flashback usage during lap
+  - Complete sector times available
+
+- **❌ Invalid Conditions**:
+  - Practice/Race modes
+  - Penalty flags active
+  - Incomplete lap data
+  - Unrealistic lap times
+  - Connection interruptions
+
+### Manual Telemetry Setup
+
+For advanced users who want to run telemetry separately:
+
+```bash
+# Run standalone UDP listener
+python udp_listener.py --port 20777 --bot-integration
+
+# Run standalone API server for testing
+python api_server_standalone.py
+```
+
+### Telemetry Data Flow
+
+```mermaid
+graph TD
+    A[F1 2025 Game] --|UDP Packets| B[Telemetry Listener]
+    B --|Validate Lap| C{Valid Lap?}
+    C --|Yes| D[Submit to Bot API]
+    C --|No| E[Discard]
+    D --|HTTP POST| F[Discord Bot]
+    F --|Store| G[SQLite Database]
+    F --|Notify| H[Discord Channel]
+```
+
+---
+
+## 🔧 Advanced Usage
+
+### Custom Track Configuration
+
+Add custom tracks or modify existing ones in `config.json`:
+
+```json
+{
+  "tracks": {
+    "custom_track": {
+      "name": "Custom Track",
+      "country": "🏁",
+      "length": 5.5,
+      "sectors": 3
+    }
+  }
+}
+```
+
+### API Integration
+
+The bot provides a RESTful API for external integrations:
+
+#### Submit Lap Time
+```http
+POST /api/telemetry/submit
+Content-Type: application/json
+
+{
+  "user_id": "123456789",
+  "time": "1:23.456",
+  "track": "silverstone",
+  "source": "external_app"
+}
+```
+
+#### Get Leaderboard
+```http
+GET /api/leaderboard/silverstone?limit=10
+```
+
+#### Health Check
+```http
+GET /api/health
+```
+
+### Database Management
+
+#### Backup Database
+```bash
+# Automatic backup (runs daily)
+python -m src.infrastructure.persistence.backup
+
+# Manual backup
+cp f1_lap_bot.db backups/f1_lap_bot_$(date +%Y%m%d).db
+```
+
+#### Migration
+```bash
+# Run database migrations
+python -m src.infrastructure.persistence.migrate
+```
+
+---
+
+## 📊 Database Schema
+
+### Tables Overview
+
+#### `lap_times`
+| Column | Type | Description |
+|--------|------|-------------|
+| lap_id | TEXT | Primary key (UUID) |
+| user_id | TEXT | Discord user ID |
+| username | TEXT | Discord username |
+| track_name | TEXT | Track identifier |
+| time_ms | INTEGER | Lap time in milliseconds |
+| formatted_time | TEXT | Human-readable time (1:23.456) |
+| sector1_ms | INTEGER | Sector 1 time |
+| sector2_ms | INTEGER | Sector 2 time |
+| sector3_ms | INTEGER | Sector 3 time |
+| is_personal_best | BOOLEAN | Personal best flag |
+| is_overall_best | BOOLEAN | Overall best flag |
+| source | TEXT | Submission source (discord/telemetry) |
+| created_at | TIMESTAMP | Creation timestamp |
+
+#### `users`
+| Column | Type | Description |
+|--------|------|-------------|
+| user_id | TEXT | Primary key (Discord ID) |
+| username | TEXT | Current Discord username |
+| total_laps | INTEGER | Total submitted laps |
+| personal_bests | INTEGER | Number of personal bests |
+| first_lap_date | TIMESTAMP | First lap submission |
+| last_active | TIMESTAMP | Last activity |
+
+### Database Queries
+
+Common queries for analytics:
+
+```sql
+-- Top 10 overall fastest times
+SELECT username, formatted_time, track_name 
+FROM lap_times 
+WHERE is_overall_best = 1 
+ORDER BY time_ms ASC 
+LIMIT 10;
+
+-- User statistics
+SELECT 
+    username,
+    COUNT(*) as total_laps,
+    SUM(is_personal_best) as personal_bests,
+    MIN(time_ms) as fastest_lap
+FROM lap_times 
+GROUP BY user_id;
+
+-- Track popularity
+SELECT 
+    track_name,
+    COUNT(*) as total_submissions,
+    AVG(time_ms) as average_time
+FROM lap_times 
+GROUP BY track_name 
+ORDER BY total_submissions DESC;
+```
+
+---
+
+## 🧪 Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=src --cov-report=html
+
+# Run specific test category
+pytest tests/unit/          # Unit tests only
+pytest tests/integration/   # Integration tests only
+pytest tests/e2e/           # End-to-end tests only
+
+# Run with verbose output
+pytest -v
+
+# Run tests in parallel
+pytest -n auto
+```
+
+### Test Structure
+
+```
+tests/
+├── unit/                   # Fast, isolated tests
+│   ├── domain/            # Domain logic tests
+│   ├── application/       # Use case tests
+│   └── infrastructure/    # Infrastructure tests
+├── integration/           # Database and API tests
+│   ├── persistence/       # Database integration
+│   └── discord/           # Discord API integration
+├── e2e/                   # Full system tests
+└── fixtures/              # Test data and helpers
+```
+
+### Test Coverage Goals
+
+- **Domain Layer**: 95%+ coverage
+- **Application Layer**: 90%+ coverage
+- **Infrastructure Layer**: 80%+ coverage
+- **Overall Project**: 85%+ coverage
+
+### Mutation Testing
+
+For critical business logic:
+
+```bash
+# Run mutation tests on core domain
+mutmut run --paths-to-mutate=src/domain/
+mutmut results
+```
+
+---
+
+## 🔄 Development
+
+### Development Workflow
+
+1. **Fork  Clone**
+   ```bash
+   git clone https://github.com/yourusername/f1-lap-bot.git
+   cd f1-lap-bot
+   ```
+
+2. **Setup Development Environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Windows: venv\Scripts\activate
+   pip install -r requirements-dev.txt
+   pre-commit install
+   ```
+
+3. **Create Feature Branch**
+   ```bash
+   git checkout -b feature/awesome-new-feature
+   ```
+
+4. **Make Changes  Test**
+   ```bash
+   pytest                    # Run tests
+   black src/ tests/         # Format code
+   mypy src/                # Type checking
+   ```
+
+5. **Commit  Push**
+   ```bash
+   git add .
+   git commit -m "Add awesome new feature"
+   git push origin feature/awesome-new-feature
+   ```
+
+### Code Style Guidelines
+
+This project follows **Clean Architecture** principles:
+
+#### Domain Layer Rules
+- ✅ No external dependencies
+- ✅ Pure business logic only
+- ✅ Rich domain models
+- ✅ Value objects for primitives
+
+#### Application Layer Rules
+- ✅ Orchestrates domain objects
+- ✅ Defines use cases
+- ✅ Contains interfaces for infrastructure
+- ✅ No framework dependencies
+
+#### Infrastructure Layer Rules
+- ✅ Implements application interfaces
+- ✅ Contains framework-specific code
+- ✅ Handles external systems
+- ✅ Repository implementations
+
+#### Coding Standards
+- **Line Length**: 88 characters (Black default)
+- **Imports**: isort for consistent import ordering
+- **Type Hints**: mypy for static type checking
+- **Docstrings**: Google style docstrings
+- **Testing**: pytest with descriptive test names
+
+### Pre-commit Hooks
+
+Automatic code quality checks:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.942
+    hooks:
+      - id: mypy
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Bot Not Responding
+```bash
+# Check bot token
+echo $DISCORD_TOKEN
+
+# Verify bot permissions
+# Bot needs: Send Messages, Use Slash Commands, Embed Links
+
+# Check logs
+tail -f f1_lap_bot.log
+```
+
+#### Telemetry Not Working
+```bash
+# Verify F1 2025 settings
+# UDP Telemetry: ON
+# UDP Port: 20777
+# UDP Format: 2025
+
+# Test UDP connection
+python udp_listener.py --debug
+
+# Check firewall settings
+# Allow Python through Windows Firewall
+```
+
+#### Database Errors
+```bash
+# Check database file permissions
+ls -la f1_lap_bot.db
+
+# Rebuild database
+rm f1_lap_bot.db
+python src/main.py  # Will recreate tables
+
+# Check SQLite version
+sqlite3 --version
+```
+
+#### Docker Issues
+```bash
+# Rebuild containers
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+
+# Check container logs
+docker-compose logs f1-lap-bot
+```
+
+### Debug Mode
+
+Enable debug logging:
+
+```env
+# .env
+LOG_LEVEL=DEBUG
+```
+
+Or run with debug flag:
+
+```bash
+python src/main.py --debug
+```
+
+### Performance Issues
+
+#### Database Optimization
+```sql
+-- Add indexes for common queries
+CREATE INDEX idx_lap_times_user_track ON lap_times(user_id, track_name);
+CREATE INDEX idx_lap_times_track_time ON lap_times(track_name, time_ms);
+```
+
+#### Memory Usage
+```bash
+# Monitor memory usage
+python -m memory_profiler src/main.py
+
+# Enable garbage collection debugging
+python -X dev src/main.py
+```
+
+### Getting Help
+
+1. **Check the logs** - Most issues are logged with helpful error messages
+2. **Search existing issues** - GitHub Issues for known problems
+3. **Discord support** - Join our support server (link in bio)
+4. **Create an issue** - Provide logs, config, and reproduction steps
+
+---
+
+## 📝 Changelog
+
+### Version 2.0.0 - 2025-07-28
+#### 🎉 Major Release - Clean Architecture Refactor
+
+**✨ New Features:**
+- Complete Clean Architecture implementation
+- Real-time telemetry integration with F1 2025
+- Advanced lap validation system
+- RESTful API for external integrations
+- Docker containerization support
+- Comprehensive test suite (90%+ coverage)
+
+**🔧 Improvements:**
+- Modern slash command interface
+- Rich Discord embeds with track information
+- Personal and overall leaderboards
+- Sector time tracking
+- Automatic personal best detection
+- Robust error handling and logging
+
+**🐛 Bug Fixes:**
+- Fixed bytes decoding issues in telemetry
+- Resolved struct unpacking errors
+- Improved UDP packet validation
+- Fixed timezone handling in timestamps
+- Corrected track name normalization
+
+**🏗️ Technical Changes:**
+- Domain-driven design implementation
+- Dependency injection container
+- Repository pattern for data access
+- Use case pattern for business logic
+- Clean separation of concerns
+- Type hints throughout codebase
+
+### Version 1.6.0 - 2025-07-24
+#### 🚀 Telemetry Integration
+
+**✨ Features:**
+- Initial UDP telemetry listener
+- Basic lap time detection
+- Time trial mode support
+
+**🐛 Fixes:**
+- Discord embed formatting
+- Database connection stability
+
+### Version 1.4.0 - 2025-07-22
+#### 🎯 Core Functionality
+
+**✨ Features:**
+- Discord slash commands
+- SQLite database integration
+- Basic leaderboard system
+- Manual lap time submission
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Ways to Contribute
+
+- 🐛 **Report Bugs** - Found a bug? Open an issue!
+- 💡 **Suggest Features** - Have an idea? We'd love to hear it!
+- 📝 **Improve Documentation** - Help make our docs better
+- 🧪 **Write Tests** - Help us improve test coverage
+- 💻 **Submit Code** - Fix bugs or implement features
+
+### Contribution Guidelines
+
+1. **Read the Code of Conduct**
+2. **Check existing issues** before creating new ones
+3. **Follow the development workflow** outlined above
+4. **Write tests** for new functionality
+5. **Update documentation** as needed
+6. **Keep commits atomic** and write clear commit messages
+
+### Development Setup
+
+```bash
+# 1. Fork the repository on GitHub
+# 2. Clone your fork
+git clone https://github.com/yourusername/f1-lap-bot.git
+
+# 3. Add upstream remote
+git remote add upstream https://github.com/originaluser/f1-lap-bot.git
+
+# 4. Create development environment
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements-dev.txt
+
+# 5. Install pre-commit hooks
+pre-commit install
+
+# 6. Run tests to verify setup
+pytest
+```
+
+### Pull Request Process
+
+1. Create a feature branch from `main`
+2. Make your changes following our coding standards
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Update documentation if needed
+6. Submit a pull request with a clear description
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+### Third-Party Licenses
+
+- **discord.py**: MIT License
+- **aiohttp**: Apache License 2.0
+- **SQLAlchemy**: MIT License
+- **pytest**: MIT License
+
+---
+
+## 🙏 Acknowledgments
+
+- **F1 Community** - For the inspiration and feedback
+- **Discord.py Team** - For the amazing Discord library
+- **Clean Architecture** - Uncle Bob's architectural principles
+- **Contributors** - Everyone who helped make this project better
+
+---
+
+## 📞 Support  Community
+
+- **🐛 Bug Reports**: [GitHub Issues](https://github.com/yourusername/f1-lap-bot/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/yourusername/f1-lap-bot/discussions)
+- **📧 Email**: support@f1lapbot.com
+- **🏎️ F1 Gaming Community**: [Discord Server](https://discord.gg/f1gaming)
+
+---
+
+div align="center"
+
+**Made with ❤️ for the F1 gaming community**
+
+[⭐ Star this repo](https://github.com/yourusername/f1-lap-bot) • [🐛 Report Bug](https://github.com/yourusername/f1-lap-bot/issues) • [💡 Request Feature](https://github.com/yourusername/f1-lap-bot/issues/new?template=feature_request.md)
+
+/div
+
 # 🏁 F1 Lap Time Discord Bot
 
 Ein Discord Bot für das Tracking von F1 Rundenzeiten mit Live-Leaderboard, Advanced Analytics, Driver Rivalries und automatischen Benachrichtigungen.

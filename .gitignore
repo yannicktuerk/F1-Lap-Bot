@@ -95,3 +95,17 @@ poetry.lock
 # Temporary files
 *.tmp
 *.temp
+
+# F1 Lap Bot specific - NEVER commit personal data!
+config.json
+config_*.json
+test_lap_times.db
+*.db.backup
+
+# UDP Telemetry logs
+telemetry_*.log
+udp_*.log
+
+# Personal configuration backups
+my_config.json
+personal_*.json
