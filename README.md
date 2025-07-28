@@ -404,13 +404,13 @@ python api_server_standalone.py
 
 ```mermaid
 graph TD
-    A[F1 2025 Game] --|UDP Packets| B[Telemetry Listener]
-    B --|Validate Lap| C{Valid Lap?}
-    C --|Yes| D[Submit to Bot API]
-    C --|No| E[Discard]
-    D --|HTTP POST| F[Discord Bot]
-    F --|Store| G[SQLite Database]
-    F --|Notify| H[Discord Channel]
+    A[F1 2025 Game] -->|UDP Packets| B[Telemetry Listener]
+    B -->|Validate Lap| C{Valid Lap?}
+    C -->|Yes| D[Submit to Bot API]
+    C -->|No| E[Discard]
+    D -->|HTTP POST| F[Discord Bot]
+    F -->|Store| G[SQLite Database]
+    F -->|Notify| H[Discord Channel]
 ```
 
 ---
