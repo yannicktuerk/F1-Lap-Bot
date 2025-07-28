@@ -247,10 +247,36 @@ class F1TelemetryListener:
         """Process session data packet."""
         try:
             # Check minimum data length for session data
-            if len(data) < 2:
+            if len(data) < 10:
                 return
+            
+            # Debug: Show first 20 bytes of session data to understand structure
+            if len(data) >= 20:
+                hex_data = data[:20].hex()
+                print(f"🔍 Session data (first 20 bytes): {hex_data}")
                 
-            # Parse session data (simplified structure)
+                # Try different offsets to find session type and track ID
+                for offset in range(min(10, len(data)-1)):
+                    try:
+                        session_type = data[offset]
+                        track_id = data[offset + 1] if offset + 1 < len(data) else 0
+                        
+                        session_type_names = {
+                            1: "Practice 1", 2: "Practice 2", 3: "Practice 3", 4: "Short Practice",
+                            5: "Qualifying 1", 6: "Qualifying 2", 7: "Qualifying 3", 8: "Short Qualifying",
+                            9: "OSQ", 10: "Time Trial", 12: "Race", 13: "Race 2"
+                        }
+                        
+                        # Check if this looks like a valid session type
+                        if session_type in session_type_names or session_type == 10:  # 10 = Time Trial
+                            session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
+                            track_name = self.track_mapping.get(track_id, f"track_{track_id}")
+                            print(f"🎮 Offset {offset}: Session: {session_name}, Track: {track_name} (Type: {session_type}, Track ID: {track_id})")
+                        
+                    except Exception:
+                        continue
+            
+            # Parse session data (original attempt)
             session_type = struct.unpack('<B', data[0:1])[0]
             track_id = struct.unpack('<B', data[1:2])[0]  # Changed to unsigned byte
             
@@ -262,7 +288,7 @@ class F1TelemetryListener:
             }
             session_name = session_type_names.get(session_type, f"Unknown ({session_type})")
             track_name = self.track_mapping.get(track_id, f"track_{track_id}")
-            print(f"🎮 Session: {session_name}, Track: {track_name} (ID: {track_id})")
+            print(f"🎮 Original parsing: Session: {session_name}, Track: {track_name} (ID: {track_id})")
             
             # Check if this is a time trial session
             is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
