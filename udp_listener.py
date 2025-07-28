@@ -132,8 +132,10 @@ class F1TelemetryListener:
     def process_packet(self, data: bytes):
         """Process incoming UDP packet using f1-packets library."""
         try:
-            # Use f1-packets library to parse the packet
-            packet = Packet.from_buffer(data)
+            # Create a mutable buffer for f1-packets library
+            # The library requires a writable buffer, so we convert bytes to bytearray
+            mutable_buffer = bytearray(data)
+            packet = Packet.from_buffer(mutable_buffer)
             
             if packet is None:
                 return
