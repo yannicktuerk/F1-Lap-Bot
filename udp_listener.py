@@ -1,22 +1,31 @@
 """F1 2025 UDP Telemetry Listener for Time Trial Mode.
 
-This module listens for UDP telemetry data from F1 2025 and automatically
-submits lap times to the Discord bot when valid time trial laps are completed.
+This module listens for UDP telemetry data from F1 2025 in Time Trial mode and
+automatically submits personal best lap times to a Discord bot server.
 
-Using f1-packets library for official F1 2025 packet parsing.
+Features:
+- Real-time F1 2025 UDP telemetry processing
+- Time Trial session detection
+- Lap time validation and personal best tracking
+- Automatic Discord bot integration
+- Comprehensive track mapping for all F1 2025 circuits
+
+Author: F1 Lap Bot Team
+Version: 2.0
+License: MIT
 """
 
 import socket
 import json
+import struct
 import requests
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from datetime import datetime
 from dataclasses import dataclass
 
 # Import f1-packets library for official F1 2025 packet parsing
-from f1.listener import PacketListener
 from f1.packets import (
-    PacketSessionData, PacketLapData, PacketEventData, PacketTimeTrialData, Packet
+    PacketSessionData, PacketLapData, PacketEventData, PacketTimeTrialData
 )
 
 # Session Types
@@ -454,7 +463,7 @@ class F1TelemetryListener:
             self.personal_bests[track_name] = lap_time_ms
             
             if self.bot_integration:
-                self.submit_to_bot(lap_time_str, track_name)
+                self.submit_to_bot(lap_time_str, track_name, sector1_ms, sector2_ms, sector3_ms)
             else:
                 print("💡 Bot integration disabled - lap time not submitted automatically")
                 print(f"📝 To submit manually: /lap submit {lap_time_str} {track_name}")
@@ -465,14 +474,15 @@ class F1TelemetryListener:
         
         print("-" * 60)
     
-    def submit_to_bot(self, lap_time: str, track_name: str):
-        """Submit lap time to Discord bot running on central server."""
+    def submit_to_bot(self, lap_time: str, track_name: str, sector1_ms: int, sector2_ms: int, sector3_ms: int):
+        """Submit lap time with sector times to Discord bot running on central server."""
         if not self.discord_user_id:
             print("❌ Discord User ID not configured - cannot submit to bot")
             print(f"📝 To submit manually: /lap submit {lap_time} {track_name}")
             return
             
         print(f"🤖 Submitting to central bot server: {lap_time} on {track_name}")
+        print(f"   🎯 Sectors: S1:{self.format_time(sector1_ms)} | S2:{self.format_time(sector2_ms)} | S3:{self.format_time(sector3_ms)}")
         
         try:
             # Submit to central Discord bot server
@@ -483,11 +493,16 @@ class F1TelemetryListener:
                     'track': track_name,
                     'user_id': self.discord_user_id,
                     'source': 'telemetry',
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': datetime.now().isoformat(),
+                    'sector_times': {
+                        'sector1_ms': sector1_ms,
+                        'sector2_ms': sector2_ms,
+                        'sector3_ms': sector3_ms
+                    }
                 },
                 headers={
                     'Content-Type': 'application/json',
-                    'User-Agent': 'F1-2025-UDP-Listener/1.0'
+                    'User-Agent': 'F1-2025-UDP-Listener/2.0'
                 },
                 timeout=10  # 10 second timeout
             )
