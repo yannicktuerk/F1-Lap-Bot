@@ -148,7 +148,7 @@ class F1TelemetryListener:
                 print(f"📦 Packet ID: {packet_id}, Size: {len(data)} bytes")
                 
                 # Try to extract useful info from unknown packets
-                if packet_id not in [1, 2, 3, 13] and len(data) > 29:
+                if packet_id not in [1, 2, 3] and len(data) > 29:
                     try:
                         # Try to find track info in other packets
                         raw_data = data[29:50] if len(data) > 50 else data[29:]
@@ -170,9 +170,9 @@ class F1TelemetryListener:
                 elif packet_id == 3:  # Event data
                     packet = PacketEventData.from_buffer(mutable_buffer)
                     self.process_event_data_official(packet)
-                elif packet_id == 13:  # Time Trial data
-                    packet = PacketTimeTrialData.from_buffer(mutable_buffer)
-                    self.process_time_trial_data_official(packet)
+                # elif packet_id == 13:  # Time Trial data - DISABLED DUE TO CORRUPTED DATA
+                #     packet = PacketTimeTrialData.from_buffer(mutable_buffer)
+                #     self.process_time_trial_data_official(packet)
                 # Ignore other packet types for now
                     
             except Exception as parse_error:
