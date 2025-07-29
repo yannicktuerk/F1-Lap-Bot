@@ -75,6 +75,10 @@ class F1TelemetryListener:
         self.last_lap_time = 0
         self.player_car_index = 0  # Usually 0 for the player
         
+        # Lap processing delay to avoid race conditions
+        self.pending_laps = {}  # Track pending laps with their data
+        self.lap_delay_frames = 3  # Wait 3 frames before processing
+        
         # Personal best times per track (in milliseconds)
         self.personal_bests: Dict[str, int] = {}
         
@@ -330,24 +334,31 @@ class F1TelemetryListener:
                 lap_time_ms > 30000 and  # Minimum 30 seconds
                 lap_time_ms < 300000):   # Maximum 5 minutes
                 
-                print(f"🔍 Processing completed lap: {self.format_time(lap_time_ms)}")
+                print(f"🔍 New completed lap detected: {self.format_time(lap_time_ms)}")
                 
-                # CRITICAL: Validate lap FIRST before any processing
-                is_valid_lap = self.validate_lap(
-                    lap_time_ms, current_lap_invalid, penalties
-                )
+                # CRITICAL: Use delayed processing to avoid race conditions
+                # F1 2025 sends lap time BEFORE invalid flags are set!
+                lap_key = f"{lap_time_ms}_{current_lap_num}"
                 
-                # Update last lap time regardless to prevent duplicate processing
+                # Store lap data for delayed processing
+                self.pending_laps[lap_key] = {
+                    'lap_time_ms': lap_time_ms,
+                    'sector1_ms': sector1_ms,
+                    'sector2_ms': sector2_ms, 
+                    'sector3_ms': sector3_ms,
+                    'current_lap_invalid': current_lap_invalid,
+                    'penalties': penalties,
+                    'frames_remaining': self.lap_delay_frames,
+                    'lap_num': current_lap_num
+                }
+                
+                print(f"⏳ Lap queued for delayed processing (waiting {self.lap_delay_frames} frames for flags to stabilize)")
+                
+                # Update last lap time to prevent duplicate detection
                 self.last_lap_time = lap_time_ms
                 
-                if is_valid_lap:
-                    print(f"✅ Lap validation passed - processing lap")
-                    self.handle_completed_lap(
-                        lap_time_ms, sector1_ms, sector2_ms, sector3_ms
-                    )
-                else:
-                    print(f"❌ Lap validation failed - lap REJECTED and NOT processed")
-                    print(f"   Time: {self.format_time(lap_time_ms)}, Invalid: {current_lap_invalid}, Penalties: {penalties}")
+            # Process all pending laps
+            self.process_pending_laps()
                 
         except Exception as e:
             print(f"❌ Error processing lap data: {e}")
@@ -428,6 +439,46 @@ class F1TelemetryListener:
                 
         except Exception as e:
             print(f"❌ Error processing Time Trial data: {e}")
+    
+    def process_pending_laps(self):
+        """Process all pending laps with their current validation state."""
+        completed_laps = []
+        
+        for lap_key, lap_data in self.pending_laps.items():
+            # Decrease frame counter
+            lap_data['frames_remaining'] -= 1
+            
+            # Check if delay period is complete
+            if lap_data['frames_remaining'] <= 0:
+                print(f"⏰ Processing delayed lap: {self.format_time(lap_data['lap_time_ms'])} (frames elapsed)")
+                
+                # Validate lap with final state
+                is_valid_lap = self.validate_lap(
+                    lap_data['lap_time_ms'], 
+                    lap_data['current_lap_invalid'], 
+                    lap_data['penalties']
+                )
+                
+                if is_valid_lap:
+                    print(f"✅ Delayed lap validation passed - processing lap")
+                    self.handle_completed_lap(
+                        lap_data['lap_time_ms'], 
+                        lap_data['sector1_ms'], 
+                        lap_data['sector2_ms'], 
+                        lap_data['sector3_ms']
+                    )
+                else:
+                    print(f"❌ Delayed lap validation failed - lap REJECTED")
+                    print(f"   Final state: Invalid={lap_data['current_lap_invalid']}, Penalties={lap_data['penalties']}")
+                
+                # Mark for removal
+                completed_laps.append(lap_key)
+            else:
+                print(f"⏳ Lap {self.format_time(lap_data['lap_time_ms'])} waiting ({lap_data['frames_remaining']} frames remaining)")
+        
+        # Remove completed laps
+        for lap_key in completed_laps:
+            del self.pending_laps[lap_key]
     
     def validate_lap(self, lap_time_ms: int, current_lap_invalid: bool, penalties: int) -> bool:
         """Validate if a lap is legitimate and should be submitted.
