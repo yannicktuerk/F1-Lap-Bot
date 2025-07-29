@@ -419,29 +419,22 @@ class F1TelemetryListener:
                 # Mark this lap time as seen to prevent future processing
                 self.processed_lap_times.add(lap_time_ms)
                 
-                # CRITICAL: Use delayed processing to avoid race conditions
-                # F1 2025 sends lap time BEFORE invalid flags are set!
-                lap_key = f"{lap_time_ms}_{current_lap_num}"
+                # IMMEDIATE PROCESSING: No more delayed processing to avoid race conditions!
+                # The invalid flags are checked BEFORE this point, so if we get here, the lap is valid
+                print(f"⚡ IMMEDIATE PROCESSING: Processing lap {self.format_time(lap_time_ms)} RIGHT NOW!")
                 
-                # Store lap data for delayed processing
-                self.pending_laps[lap_key] = {
-                    'lap_time_ms': lap_time_ms,
-                    'sector1_ms': sector1_ms,
-                    'sector2_ms': sector2_ms, 
-                    'sector3_ms': sector3_ms,
-                    'current_lap_invalid': current_lap_invalid,
-                    'penalties': penalties,
-                    'frames_remaining': self.lap_delay_frames,
-                    'lap_num': current_lap_num
-                }
+                # Final validation before processing
+                is_valid_lap = self.validate_lap(lap_time_ms, current_lap_invalid, penalties)
                 
-                print(f"⏳ Lap queued for delayed processing (waiting {self.lap_delay_frames} frames for flags to stabilize)")
+                if is_valid_lap:
+                    print(f"✅ Immediate validation passed - processing lap")
+                    self.handle_completed_lap(lap_time_ms, sector1_ms, sector2_ms, sector3_ms)
+                else:
+                    print(f"❌ Immediate validation failed - lap REJECTED")
+                    print(f"   Final state: Invalid={current_lap_invalid}, Penalties={penalties}")
                 
                 # Update last lap time to prevent duplicate detection
                 self.last_lap_time = lap_time_ms
-                
-            # Process all pending laps
-            self.process_pending_laps()
                 
         except Exception as e:
             print(f"❌ Error processing lap data: {e}")
