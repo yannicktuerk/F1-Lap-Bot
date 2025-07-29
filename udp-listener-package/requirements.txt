@@ -1,11 +1,5 @@
-discord.py==2.3.2
-python-dotenv==1.0.0
-aiosqlite==0.19.0
-aiofiles==23.2.1
-pytz==2023.3
-pytest==7.4.3
-pytest-asyncio==0.21.1
-aiohttp==3.9.1
-aiohttp-cors==0.7.0
+# F1 Lap Bot - UDP Listener Requirements
+# Only needed for telemetry listener, not for the full bot
+
 requests==2.31.0
 f1-packets==2025.1.1
