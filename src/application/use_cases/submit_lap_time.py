@@ -92,7 +92,7 @@ class SubmitLapTimeUseCase:
         await self._repository.save(lap_time)
         
         # Update ELO ratings if the feature is enabled
-        if self._update_elo_use_case and is_personal_best:
+        if self._update_elo_use_case:
             try:
                 await self._update_elo_use_case.execute(lap_time)
             except Exception as e:
