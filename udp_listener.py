@@ -387,13 +387,21 @@ class F1TelemetryListener:
                 previous_lap_invalid_detected = self.current_lap_invalid_detected
                 previous_lap_penalties_detected = self.current_lap_penalties_detected
                 
-                # Reset tracking when we start a new lap
-                if current_lap_num != self.current_lap_number:
-                    print(f"🔄 NEW LAP STARTED: Lap {current_lap_num} (was {self.current_lap_number})")
-                    print(f"📊 PREVIOUS LAP TRACKING: EverInvalid={previous_lap_invalid_detected}, MaxPenalties={previous_lap_penalties_detected}")
+                # Reset tracking when we start a new lap OR detect a restart
+                # Detect restart: current lap time is 0 but we're still in the same lap number
+                is_restart = (current_lap_time_ms == 0 and current_lap_num == self.current_lap_number and self.current_lap_invalid_detected)
+                
+                if current_lap_num != self.current_lap_number or is_restart:
+                    if is_restart:
+                        print(f"🔄 GAME RESTART DETECTED: Same lap {current_lap_num} but current time is 0ms")
+                        print(f"   ✅ Resetting EverInvalid flag due to restart")
+                    else:
+                        print(f"🔄 NEW LAP STARTED: Lap {current_lap_num} (was {self.current_lap_number})")
+                        print(f"📊 PREVIOUS LAP TRACKING: EverInvalid={previous_lap_invalid_detected}, MaxPenalties={previous_lap_penalties_detected}")
+                    
                     self.current_lap_number = current_lap_num
-                    self.current_lap_invalid_detected = False  # Reset invalid flag for new lap
-                    self.current_lap_penalties_detected = 0   # Reset penalties for new lap
+                    self.current_lap_invalid_detected = False  # Reset invalid flag for new lap or restart
+                    self.current_lap_penalties_detected = 0   # Reset penalties for new lap or restart
                 
                 # CRITICAL: Track if lap becomes invalid at ANY point during progression
                 if current_lap_invalid and not self.current_lap_invalid_detected:
