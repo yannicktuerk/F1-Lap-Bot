@@ -413,24 +413,29 @@ class F1TelemetryListener:
         except Exception as e:
             print(f"❌ Error processing Time Trial data: {e}")
     
-    def validate_lap(self, lap_time_ms: int, current_lap_invalid: bool, lap_valid_flags: int) -> bool:
-        """Validate if a lap is legitimate and should be submitted."""
-        # Check basic lap validity
+    def validate_lap(self, lap_time_ms: int, current_lap_invalid: bool, penalties: int) -> bool:
+        """Validate if a lap is legitimate and should be submitted.
+        
+        Based on F1 2025 UDP specification:
+        - current_lap_invalid: 0 = valid, 1 = invalid
+        - penalties: Accumulated time penalties in seconds
+        """
+        # Check if the current lap is marked as invalid
         if current_lap_invalid:
+            print(f"❌ Lap invalid: current_lap_invalid flag is set")
             return False
             
-        # Check lap validity flags
-        if lap_valid_flags & (LAP_INVALID_CORNER_CUTTING | 
-                             LAP_INVALID_PARKING |
-                             LAP_INVALID_PIT_LANE |
-                             LAP_INVALID_WALL_RIDING |
-                             LAP_INVALID_FLASHBACK):
+        # Check if there are any penalties on this lap
+        if penalties > 0:
+            print(f"❌ Lap invalid: {penalties} seconds of penalties accumulated")
             return False
             
         # Time range validation (30 seconds to 5 minutes)
         if lap_time_ms < 30000 or lap_time_ms > 300000:
+            print(f"❌ Lap invalid: time {lap_time_ms}ms outside valid range (30s-5min)")
             return False
             
+        print(f"✅ Lap validation passed: time={lap_time_ms}ms, invalid={current_lap_invalid}, penalties={penalties}")
         return True
     
     def handle_completed_lap(self, lap_time_ms: int, sector1_ms: int, 
