@@ -10,6 +10,7 @@ from aiohttp.web import Request, Response
 import aiohttp_cors
 
 from src.application.use_cases.submit_lap_time import SubmitLapTimeUseCase
+from src.application.use_cases.update_elo_ratings import UpdateEloRatingsUseCase
 from src.domain.value_objects.time_format import TimeFormat
 from src.domain.value_objects.track_name import TrackName
 from src.infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
@@ -19,11 +20,13 @@ import discord
 class TelemetryAPI:
     """HTTP API server for receiving telemetry data."""
     
-    def __init__(self, lap_time_repository: SQLiteLapTimeRepository, host: str = "0.0.0.0", port: int = 8080, discord_bot=None):
+    def __init__(self, lap_time_repository: SQLiteLapTimeRepository, driver_rating_repository, host: str = "0.0.0.0", port: int = 8080, discord_bot=None):
         self.host = host
         self.port = port
         self.lap_time_repository = lap_time_repository
+        self.driver_rating_repository = driver_rating_repository
         self.submit_use_case = SubmitLapTimeUseCase(lap_time_repository)
+        self.update_elo_use_case = UpdateEloRatingsUseCase(driver_rating_repository, lap_time_repository)
         self.discord_bot = discord_bot  # Reference to Discord bot for user lookup
         self.app = web.Application()
         self.runner: Optional[web.AppRunner] = None
@@ -124,7 +127,10 @@ class TelemetryAPI:
                     time_string=time_str,
                     track_string=track_str
                 )
-                
+
+                # Update ELO ratings
+                await self.update_elo_use_case.execute(lap_time)
+
                 # Log successful submission
                 self.logger.info(f"Telemetry lap submitted: {username} - {time_str} on {track_str}")
                 print(f"📊 Telemetry lap received: {username} - {time_str} on {track_str}")

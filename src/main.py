@@ -84,14 +84,20 @@ async def main():
     api_host = os.getenv('API_HOST', '0.0.0.0')
     api_port = int(os.getenv('API_PORT', '8080'))
     
-    # Create shared repository instance
+    # Create shared repository instances
     lap_time_repository = SQLiteLapTimeRepository()
     
     # Create Discord bot
     bot = F1LapBot()
     
     # Create HTTP API server for telemetry
-    api_server = TelemetryAPI(lap_time_repository, host=api_host, port=api_port, discord_bot=bot)
+    api_server = TelemetryAPI(
+        lap_time_repository, 
+        bot.driver_rating_repository,
+        host=api_host, 
+        port=api_port, 
+        discord_bot=bot
+    )
     
     try:
         print("🚀 Starting F1 Lap Time Bot with Telemetry API...")
