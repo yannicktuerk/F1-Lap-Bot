@@ -75,6 +75,12 @@ class F1TelemetryListener:
         self.last_lap_time = 0
         self.player_car_index = 0  # Usually 0 for the player
         
+        # CRITICAL: Track listener state to avoid processing old laps
+        self.listener_start_time = None  # When listener was started
+        self.session_start_detected = False  # Whether we detected session start
+        self.baseline_lap_established = False  # Whether we have established current lap as baseline
+        self.processed_lap_times = set()  # Track which lap times we've already seen
+        
         # Lap processing delay to avoid race conditions
         self.pending_laps = {}  # Track pending laps with their data
         self.lap_delay_frames = 3  # Wait 3 frames before processing
@@ -120,9 +126,14 @@ class F1TelemetryListener:
             self.socket.bind(('0.0.0.0', self.port))
             self.running = True
             
+            # Record when listener started
+            self.listener_start_time = datetime.now()
+            
             print(f"🏎️ F1 2025 Telemetry Listener started on port {self.port}")
+            print(f"⏰ Listener started at: {self.listener_start_time.strftime('%H:%M:%S')}")
             print("🎯 Monitoring for Time Trial sessions...")
             print("⚠️  Make sure F1 2025 UDP telemetry is enabled in game settings!")
+            print("🔄 IMPORTANT: Only laps driven AFTER this point will be processed!")
             print("📡 Waiting for telemetry data...\n")
             
             while self.running:
@@ -380,13 +391,32 @@ class F1TelemetryListener:
                 print(f"❌ Field access error: {field_error}")
                 return
             
+            # CRITICAL: Establish baseline on first lap data to avoid processing old laps
+            if not self.baseline_lap_established and lap_time_ms > 0:
+                print(f"🔄 BASELINE ESTABLISHED: Current lap {self.format_time(lap_time_ms)} set as baseline")
+                print(f"⚠️  This lap was driven BEFORE the listener started and will be IGNORED")
+                print(f"✅ Ready to process new laps driven after listener start!")
+                self.baseline_lap_established = True
+                self.last_lap_time = lap_time_ms  # Set baseline to prevent processing this lap
+                self.processed_lap_times.add(lap_time_ms)  # Mark as already seen
+                return  # Do not process this baseline lap
+            
             # Check if this is a completed lap (basic conditions)
             if (lap_time_ms > 0 and 
                 lap_time_ms != self.last_lap_time and 
                 lap_time_ms > 30000 and  # Minimum 30 seconds
                 lap_time_ms < 300000):   # Maximum 5 minutes
                 
-                print(f"🔍 New completed lap detected: {self.format_time(lap_time_ms)}")
+                # CRITICAL: Only process laps that haven't been seen before
+                if lap_time_ms in self.processed_lap_times:
+                    print(f"🚫 SKIPPING: Lap {self.format_time(lap_time_ms)} already processed (old lap from before listener start)")
+                    return
+                
+                print(f"🔍 NEW LAP DRIVEN WHILE LISTENER ACTIVE: {self.format_time(lap_time_ms)}")
+                print(f"✅ This lap was driven AFTER listener start - will be processed!")
+                
+                # Mark this lap time as seen to prevent future processing
+                self.processed_lap_times.add(lap_time_ms)
                 
                 # CRITICAL: Use delayed processing to avoid race conditions
                 # F1 2025 sends lap time BEFORE invalid flags are set!
