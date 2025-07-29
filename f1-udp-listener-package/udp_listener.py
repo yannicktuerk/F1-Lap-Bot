@@ -383,9 +383,14 @@ class F1TelemetryListener:
                 result_status = getattr(player_lap_data, 'result_status', 0)
                 
                 # CRITICAL: Track lap progression and invalid status during the ENTIRE lap
+                # Store previous lap's tracking data before reset
+                previous_lap_invalid_detected = self.current_lap_invalid_detected
+                previous_lap_penalties_detected = self.current_lap_penalties_detected
+                
                 # Reset tracking when we start a new lap
                 if current_lap_num != self.current_lap_number:
                     print(f"🔄 NEW LAP STARTED: Lap {current_lap_num} (was {self.current_lap_number})")
+                    print(f"📊 PREVIOUS LAP TRACKING: EverInvalid={previous_lap_invalid_detected}, MaxPenalties={previous_lap_penalties_detected}")
                     self.current_lap_number = current_lap_num
                     self.current_lap_invalid_detected = False  # Reset invalid flag for new lap
                     self.current_lap_penalties_detected = 0   # Reset penalties for new lap
@@ -445,17 +450,16 @@ class F1TelemetryListener:
                 self.processed_lap_times.add(lap_time_ms)
                 
                 # IMMEDIATE PROCESSING: No more delayed processing to avoid race conditions!
-                # The invalid flags are checked BEFORE this point, so if we get here, the lap is valid
                 print(f"⚡ IMMEDIATE PROCESSING: Processing lap {self.format_time(lap_time_ms)} RIGHT NOW!")
                 
-                # CRITICAL: Use tracked invalid status instead of current moment status!
-                # The lap may have been invalid during progression but valid at completion
-                final_invalid_status = self.current_lap_invalid_detected or current_lap_invalid
-                final_penalty_status = max(self.current_lap_penalties_detected, penalties)
+                # CRITICAL: Use the tracking data from BEFORE the reset happened!
+                # If we just started a new lap, use previous lap's data, otherwise use current
+                final_invalid_status = previous_lap_invalid_detected or current_lap_invalid
+                final_penalty_status = max(previous_lap_penalties_detected, penalties)
                 
                 print(f"🔍 FINAL VALIDATION CHECK:")
                 print(f"   Current moment: Invalid={current_lap_invalid}, Penalties={penalties}")
-                print(f"   Tracked during lap: EverInvalid={self.current_lap_invalid_detected}, MaxPenalties={self.current_lap_penalties_detected}")
+                print(f"   Tracked during lap: EverInvalid={previous_lap_invalid_detected}, MaxPenalties={previous_lap_penalties_detected}")
                 print(f"   FINAL STATUS: Invalid={final_invalid_status}, Penalties={final_penalty_status}")
                 
                 # Final validation before processing using tracked status
