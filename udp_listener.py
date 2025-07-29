@@ -313,25 +313,30 @@ class F1TelemetryListener:
                 print(f"❌ Field access error: {field_error}")
                 return
             
-            # Check if this is a completed, valid lap
+            # Check if this is a completed lap (basic conditions)
             if (lap_time_ms > 0 and 
                 lap_time_ms != self.last_lap_time and 
                 lap_time_ms > 30000 and  # Minimum 30 seconds
                 lap_time_ms < 300000):   # Maximum 5 minutes
                 
-                # Validate lap
+                print(f"🔍 Processing completed lap: {self.format_time(lap_time_ms)}")
+                
+                # CRITICAL: Validate lap FIRST before any processing
                 is_valid_lap = self.validate_lap(
                     lap_time_ms, current_lap_invalid, penalties
                 )
                 
+                # Update last lap time regardless to prevent duplicate processing
+                self.last_lap_time = lap_time_ms
+                
                 if is_valid_lap:
+                    print(f"✅ Lap validation passed - processing lap")
                     self.handle_completed_lap(
                         lap_time_ms, sector1_ms, sector2_ms, sector3_ms
                     )
                 else:
-                    print(f"⚠️  Invalid lap detected (time: {self.format_time(lap_time_ms)}) - not submitted")
-                
-                self.last_lap_time = lap_time_ms
+                    print(f"❌ Lap validation failed - lap REJECTED and NOT processed")
+                    print(f"   Time: {self.format_time(lap_time_ms)}, Invalid: {current_lap_invalid}, Penalties: {penalties}")
                 
         except Exception as e:
             print(f"❌ Error processing lap data: {e}")
