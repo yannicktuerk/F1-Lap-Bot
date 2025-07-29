@@ -1685,24 +1685,25 @@ class LapCommands(commands.Cog):
     @app_commands.command(name="recalculate", description="🔄 Recalculate all ELO ratings based on existing lap times")
     async def recalculate_elo_ratings(self, interaction: discord.Interaction):
         """Recalculate all ELO ratings based on existing lap times."""
-        try:
-            # Only allow administrators or bot owner to run this command
-            if not interaction.user.guild_permissions.administrator:
-                error_embed = discord.Embed(
-                    title="❌ Permission Denied",
-                    description="Only administrators can recalculate ELO ratings.",
-                    color=discord.Color.red()
-                )
-                await interaction.response.send_message(embed=error_embed, ephemeral=True)
-                return
-            
-            # Send immediate response to avoid timeout
-            embed = discord.Embed(
-                title="🔄 Starting ELO Recalculation",
-                description="**Processing all lap times to recalculate ELO ratings...**\n\n⏳ This may take a moment. Please wait...",
-                color=discord.Color.blue()
+        # Only allow administrators or bot owner to run this command
+        if not interaction.user.guild_permissions.administrator:
+            error_embed = discord.Embed(
+                title="❌ Permission Denied",
+                description="Only administrators can recalculate ELO ratings.",
+                color=discord.Color.red()
             )
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            return
+        
+        # Send immediate response to avoid timeout
+        embed = discord.Embed(
+            title="🔄 Starting ELO Recalculation",
+            description="**Processing all lap times to recalculate ELO ratings...**\n\n⏳ This may take a moment. Please wait...",
+            color=discord.Color.blue()
+        )
+        await interaction.response.send_message(embed=embed)
+        
+        try:
             
             # Now start the actual processing
             processing_embed = discord.Embed(
