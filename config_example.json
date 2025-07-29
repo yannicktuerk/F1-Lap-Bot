@@ -1,6 +1,0 @@
-{
-    "discord_user_id": "YOUR_DISCORD_USER_ID_HERE",
-    "bot_api_url": "https://your-bot-server.com/api/telemetry/submit",
-    "port": 20777,
-    "player_name": "YourPlayerName"
-}

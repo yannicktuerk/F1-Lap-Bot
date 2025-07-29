@@ -1,339 +1,53 @@
-# 🏎️ F1 Lap Bot - Advanced Telemetry  Discord Integration
+# 🏎️ F1 Lap Bot
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
-[![Discord.py](https://img.shields.io/badge/discord.py-2.0+-green.svg)](https://discordpy.readthedocs.io/)
-[![Clean Architecture](https://img.shields.io/badge/Architecture-Clean-brightgreen.svg)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+🏁 **Track lap times, compete with friends, and analyze your F1 2025 performance with automatic telemetry integration.**
 
- **The ultimate F1 gaming companion** - Track lap times, compete with friends, and analyze your performance with real-time telemetry integration for F1 2025.
+## ✨ Features
 
----
+- **🏁 Real-time Lap Tracking** - Automatic F1 2025 telemetry integration
+- **🏆 Leaderboards** - Personal bests and overall rankings
+- **📊 Analytics** - Sector times and performance statistics
+- **🤖 Discord Commands** - Easy slash command interface
+- **🛡️ Anti-cheat** - Validates legitimate lap times only
 
-## 📋 Table of Contents
+## 🎮 F1 2025 Setup
 
-- [🌟 Features](#-features)
-- [🏗️ Architecture](#️-architecture)
-- [🚀 Quick Start](#-quick-start)
-- [📦 Installation](#-installation)
-- [⚙️ Configuration](#️-configuration)
-- [🎮 Game Setup](#-game-setup)
-- [🤖 Discord Bot Commands](#-discord-bot-commands)
-- [📡 Telemetry Integration](#-telemetry-integration)
-- [🔧 Advanced Usage](#-advanced-usage)
-- [📊 Database Schema](#-database-schema)
-- [🧪 Testing](#-testing)
-- [🔄 Development](#-development)
-- [🐛 Troubleshooting](#-troubleshooting)
-- [📝 Changelog](#-changelog)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+1. **Launch F1 2025**
+2. **Settings** → **Telemetry Settings**
+3. **Enable UDP Telemetry**:
+   - UDP Telemetry: `On`
+   - UDP Port: `20777`
+   - UDP Format: `2025`
+   - UDP IP: `127.0.0.1`
 
----
+**Supported:** Time Trial mode (all F1 2025 tracks)
+**Not supported:** Race mode, Online multiplayer
 
-## 🌟 Features
+## 📡 UDP Listener Setup
 
-### Core Functionality
-- **🏁 Real-time Lap Time Tracking** - Automatic detection and recording of F1 2025 lap times
-- **🏆 Personal  Overall Leaderboards** - Track your progress and compete with friends
-- **📊 Detailed Performance Analytics** - Sector times, track-specific statistics, and trends
-- **🎯 Smart Time Trial Detection** - Only records times from valid Time Trial sessions
+### Quick Setup
+1. Download: [UDP Listener ZIP](https://github.com/yannicktuerk/F1-Lap-Bot/raw/main/f1-udp-listener-v1.2.zip)
+2. Extract and run `setup.bat` (Windows)
+3. Edit `config.json` with your Discord User ID
+4. Run `start.bat` or `python udp_listener.py`
 
-### Discord Integration
-- **🤖 Slash Commands** - Modern Discord command interface
-- **🚨 Real-time Notifications** - Instant alerts for personal bests and records
-- **👥 Multi-user Support** - Individual tracking for each Discord user
-- **📈 Rich Embeds** - Beautiful lap time displays with track information
-
-### Telemetry Features
-- **📡 UDP Telemetry Listener** - Direct integration with F1 2025 game data
-- **✅ Lap Validation** - Sophisticated detection of valid/invalid laps
-- **🛡️ Anti-cheat Protection** - Filtering of unrealistic times and penalties
-- **🔄 Auto-submission** - Seamless integration between game and Discord
-
-### Technical Excellence
-- **🏗️ Clean Architecture** - Domain-driven design with clear separation of concerns
-- **🧪 Comprehensive Testing** - 90%+ test coverage with unit and integration tests
-- **📱 RESTful API** - HTTP API for external integrations and telemetry
-- **🐳 Docker Ready** - Containerized deployment with docker-compose
-
----
-
-## 🏗️ Architecture
-
-This project follows **Clean Architecture** principles with clear layer separation:
-
-```
-src/
-├── Domain/              # Business logic and entities
-│   ├── entities/        # Core business objects (LapTime, User)
-│   ├── value_objects/   # Immutable values (TimeFormat, TrackName)
-│   └── interfaces/      # Repository contracts
-├── Application/         # Use cases and application services
-│   ├── use_cases/       # Business use case implementations
-│   └── services/        # Application-level services
-├── Infrastructure/      # External concerns
-│   ├── persistence/     # Database implementations
-│   ├── discord/         # Discord API integration
-│   └── telemetry/       # F1 2025 UDP listener
-└── Presentation/        # User interfaces
-    ├── discord/         # Discord bot commands
-    └── api/             # HTTP API endpoints
-```
-
-### Key Architectural Benefits
-- **🔄 Framework Independence** - Core business logic isolated from Discord/database
-- **🧪 Testable Design** - Easy mocking and unit testing
-- **🔧 Maintainable Code** - Clear responsibilities and dependencies
-- **📈 Scalable Structure** - Easy to extend with new features
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- **Python 3.10+** installed
-- **F1 2025 Game** with UDP telemetry enabled
-- **Discord Bot Token** (see [Discord Bot Setup](#discord-bot-setup))
-
-### Option 1: Full Bot Setup (1-Minute Setup)
-```bash
-# Clone the repository
-git clone https://github.com/yannicktuerk/F1-Lap-Bot.git
-cd f1-lap-bot
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your Discord bot token
-
-# Run the bot
-python src/main.py
-```
-
-### Option 2: UDP Listener Only (Direct Download)
-
-For users who only need the telemetry listener:
-
-#### Option 2A: Complete Package (Recommended)
-📦 **ZIP Package**: [f1-udp-listener-v1.0.zip](https://github.com/yannicktuerk/F1-Lap-Bot/raw/main/f1-udp-listener-v1.0.zip)
-
-Includes:
-- `udp_listener.py` - Main telemetry script
-- `requirements.txt` - Python dependencies  
-- `config_example.json` - Configuration template
-- `setup.bat` - Automated Windows setup
-- `start.bat` - Easy launcher for Windows
-- `README.md` - Detailed instructions
-
-```bash
-# Windows: Double-click setup.bat to install
-# Or manually:
-pip install -r requirements.txt
-mv config_example.json config.json
-# Edit config.json with your settings
-python udp_listener.py
-```
-
-#### Option 2B: Single File Download
-📥 **Direct Download**: [udp_listener.py](https://raw.githubusercontent.com/yannicktuerk/F1-Lap-Bot/main/udp_listener.py)
-
-```bash
-# After downloading udp_listener.py:
-# Install dependencies
-pip install requests f1-packets
-
-# Create config.json (see docs/configuration.md for details)
-# Run listener
-python udp_listener.py
-```
-
-📖 **For detailed setup instructions**: See [Installation Guide](docs/installation.md)
-
-That's it! Your F1 Lap Bot is now running and ready to track lap times! 🎉
-
----
-
-## 📦 Installation
-
-### Option 1: Standard Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/f1-lap-bot.git
-cd f1-lap-bot
-
-# Create virtual environment (recommended)
-python -m venv f1bot-env
-source f1bot-env/bin/activate  # On Windows: f1bot-env\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Option 2: Docker Installation
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/f1-lap-bot.git
-cd f1-lap-bot
-
-# Run with Docker Compose
-docker-compose up -d
-```
-
-### Option 3: Development Setup
-
-```bash
-# Clone and setup for development
-git clone https://github.com/yourusername/f1-lap-bot.git
-cd f1-lap-bot
-
-# Install with development dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests to verify setup
-pytest
-```
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-# Discord Bot Configuration
-DISCORD_TOKEN=your_discord_bot_token_here
-DISCORD_GUILD_ID=your_discord_server_id
-
-# Database Configuration
-DATABASE_URL=sqlite:///f1_lap_bot.db
-
-# Telemetry Configuration
-TELEMETRY_PORT=20777
-TELEMETRY_HOST=0.0.0.0
-
-# API Configuration
-API_PORT=5000
-API_HOST=0.0.0.0
-
-# Logging Configuration
-LOG_LEVEL=INFO
-LOG_FILE=f1_lap_bot.log
-
-# Feature Flags
-ENABLE_TELEMETRY=true
-ENABLE_API=true
-ENABLE_AUTO_SYNC=true
-```
-
-### Discord Bot Setup
-
-1. **Create Discord Application**
-   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
-   - Click "New Application" and give it a name
-   - Navigate to "Bot" section and click "Add Bot"
-
-2. **Get Bot Token**
-   - Copy the bot token and add it to your `.env` file
-   - **⚠️ Keep this token secret!**
-
-3. **Bot Permissions**
-   - Enable these bot permissions:
-     - `Send Messages`
-     - `Use Slash Commands`
-     - `Embed Links`
-     - `Read Message History`
-
-4. **Invite Bot to Server**
-   - Go to OAuth2  URL Generator
-   - Select scopes: `bot`, `applications.commands`
-   - Select permissions listed above
-   - Use generated URL to invite bot
-
-### Configuration Files
-
-**config.json** - Application-specific settings:
+### Config Example
 ```json
 {
-  "database": {
-    "path": "f1_lap_bot.db",
-    "backup_interval": 3600
-  },
-  "telemetry": {
-    "validation": {
-      "min_lap_time": 30000,
-      "max_lap_time": 300000,
-      "require_time_trial": true
-    }
-  },
-  "discord": {
-    "embed_color": "#FF6B35",
-    "timezone": "UTC"
-  }
+    "discord_user_id": "YOUR_DISCORD_USER_ID",
+    "bot_api_url": "ASK_BOT_ADMIN_FOR_URL",
+    "port": 20777,
+    "bot_integration": true
 }
 ```
 
----
+**How to get Discord User ID:**
+1. Discord → Settings → Advanced → Developer Mode: On
+2. Right-click your name → Copy User ID
 
-## 🎮 Game Setup
-
-### F1 2025 Telemetry Configuration
-
-1. **Launch F1 2025**
-2. **Navigate to Settings** → **Telemetry Settings**
-3. **Enable UDP Telemetry**:
-   - **UDP Telemetry**: `On`
-   - **UDP Port**: `20777` (default)
-   - **UDP Format**: `2025`
-   - **UDP Rate**: `20Hz` or higher
-
-4. **Network Configuration**:
-   - **UDP IP Address**: `127.0.0.1` (for local use)
-   - Or your computer's IP address for remote setup
-
-### Supported Game Modes
-- ✅ **Time Trial** - Primary mode for lap time recording
-- ✅ **Practice Sessions** - Supported with manual validation
-- ❌ **Race Mode** - Not supported (safety reasons)
-- ❌ **Online Multiplayer** - Not supported
-
-### Track Support
-All F1 2025 official tracks are supported:
-- 🇧🇭 Bahrain International Circuit
-- 🇸🇦 Jeddah Corniche Circuit
-- 🇦🇺 Albert Park Circuit
-- 🇦🇿 Baku City Circuit
-- 🇺🇸 Miami International Autodrome
-- 🇮🇹 Autodromo Enzo e Dino Ferrari (Imola)
-- 🇲🇨 Circuit de Monaco
-- 🇪🇸 Circuit de Barcelona-Catalunya
-- 🇨🇦 Circuit Gilles Villeneuve
-- 🇦🇹 Red Bull Ring
-- 🇬🇧 Silverstone Circuit
-- 🇭🇺 Hungaroring
-- 🇧🇪 Circuit de Spa-Francorchamps
-- 🇳🇱 Circuit Zandvoort
-- 🇮🇹 Autodromo Nazionale di Monza
-- 🇸🇬 Marina Bay Street Circuit
-- 🇯🇵 Suzuka International Racing Course
-- 🇶🇦 Lusail International Circuit
-- 🇺🇸 Circuit of the Americas
-- 🇲🇽 Autódromo José Carlos Pace
-- 🇺🇸 Las Vegas Street Circuit
-- 🇦🇪 Yas Marina Circuit
 
 ---
 
-## 🤖 Discord Bot Commands
 
 ### Lap Time Commands
 
@@ -583,59 +297,20 @@ ORDER BY total_submissions DESC;
 
 ---
 
-## 🧪 Testing
+## 🚀 One-Command Setup
 
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific test category
-pytest tests/unit/          # Unit tests only
-pytest tests/integration/   # Integration tests only
-pytest tests/e2e/           # End-to-end tests only
-
-# Run with verbose output
-pytest -v
-
-# Run tests in parallel
-pytest -n auto
-```
-
-### Test Structure
-
-```
-tests/
-├── unit/                   # Fast, isolated tests
-│   ├── domain/            # Domain logic tests
-│   ├── application/       # Use case tests
-│   └── infrastructure/    # Infrastructure tests
-├── integration/           # Database and API tests
-│   ├── persistence/       # Database integration
-│   └── discord/           # Discord API integration
-├── e2e/                   # Full system tests
-└── fixtures/              # Test data and helpers
-```
-
-### Test Coverage Goals
-
-- **Domain Layer**: 95%+ coverage
-- **Application Layer**: 90%+ coverage
-- **Infrastructure Layer**: 80%+ coverage
-- **Overall Project**: 85%+ coverage
-
-### Mutation Testing
-
-For critical business logic:
+For the easiest setup experience:
 
 ```bash
-# Run mutation tests on core domain
-mutmut run --paths-to-mutate=src/domain/
-mutmut results
+# Automated setup (recommended)
+python setup.py
+
+# This will:
+# 1. Check Python version
+# 2. Create virtual environment
+# 3. Install dependencies
+# 4. Setup configuration files
+# 5. Create necessary directories
 ```
 
 ---
@@ -772,15 +447,14 @@ python src/main.py  # Will recreate tables
 sqlite3 --version
 ```
 
-#### Docker Issues
+#### Performance Issues
 ```bash
-# Rebuild containers
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+# Check memory usage
+python -c "import psutil; print(f'Memory: {psutil.Process().memory_info().rss / 1024 / 1024:.1f} MB')"
 
-# Check container logs
-docker-compose logs f1-lap-bot
+# Check disk space
+dir /s f1_lap_bot.db  # Windows
+ls -lh f1_lap_bot.db  # Linux/Mac
 ```
 
 ### Debug Mode
