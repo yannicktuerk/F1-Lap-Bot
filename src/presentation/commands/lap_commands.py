@@ -1685,8 +1685,6 @@ class LapCommands(commands.Cog):
     @app_commands.command(name="recalculate", description="🔄 Recalculate all ELO ratings based on existing lap times")
     async def recalculate_elo_ratings(self, interaction: discord.Interaction):
         """Recalculate all ELO ratings based on existing lap times."""
-        await interaction.response.defer()
-        
         try:
             # Only allow administrators or bot owner to run this command
             if not interaction.user.guild_permissions.administrator:
@@ -1695,15 +1693,24 @@ class LapCommands(commands.Cog):
                     description="Only administrators can recalculate ELO ratings.",
                     color=discord.Color.red()
                 )
-                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                await interaction.response.send_message(embed=error_embed, ephemeral=True)
                 return
             
+            # Send immediate response to avoid timeout
             embed = discord.Embed(
-                title="🔄 Recalculating ELO Ratings",
-                description="Processing all lap times to recalculate ELO ratings...\nThis may take a moment.",
+                title="🔄 Starting ELO Recalculation",
+                description="**Processing all lap times to recalculate ELO ratings...**\n\n⏳ This may take a moment. Please wait...",
                 color=discord.Color.blue()
             )
-            message = await interaction.followup.send(embed=embed)
+            await interaction.response.send_message(embed=embed)
+            
+            # Now start the actual processing
+            processing_embed = discord.Embed(
+                title="🔄 Recalculating ELO Ratings",
+                description="Processing all lap times chronologically...\n\n🔍 **Step 1:** Resetting existing ratings\n⏳ **Step 2:** Processing lap times\n📊 **Step 3:** Creating final statistics",
+                color=discord.Color.orange()
+            )
+            message = await interaction.followup.send(embed=processing_embed)
             
             # Get all users from lap times
             all_users = set()
