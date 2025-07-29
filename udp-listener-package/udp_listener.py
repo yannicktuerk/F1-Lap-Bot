@@ -463,9 +463,18 @@ class F1TelemetryListener:
         lap_time_str = self.format_time(lap_time_ms)
         track_name = self.session_info.track_name
         
-        # Check if this is a personal best time
+        # CRITICAL: Log all PB comparisons for debugging
         current_pb = self.personal_bests.get(track_name)
+        print(f"🔍 PB CHECK: Current PB for {track_name}: {self.format_time(current_pb) if current_pb else 'None'}")
+        print(f"🔍 PB CHECK: New lap time: {lap_time_str} ({lap_time_ms}ms)")
+        
+        # Check if this is a personal best time
         is_personal_best = current_pb is None or lap_time_ms < current_pb
+        
+        if is_personal_best:
+            print(f"🎯 PB CHECK: This IS a personal best (faster or first time)")
+        else:
+            print(f"🎯 PB CHECK: This is NOT a personal best (slower by {lap_time_ms - current_pb}ms)")
         
         print(f"🏆 Valid lap completed!")
         print(f"⏱️  Time: {lap_time_str}")
