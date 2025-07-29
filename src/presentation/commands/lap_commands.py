@@ -2380,6 +2380,7 @@ async def setup(bot):
         lap_group.add_command(cog.show_rivalries)
         lap_group.add_command(cog.show_driver_rating)
         lap_group.add_command(cog.show_elo_leaderboard)
+        lap_group.add_command(cog.recalculate_elo_ratings)
         lap_group.add_command(cog.show_elo_rank_help)
         lap_group.add_command(cog.update_username)
         lap_group.add_command(cog.show_help)
