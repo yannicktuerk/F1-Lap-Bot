@@ -75,6 +75,17 @@ class F1TelemetryListener:
         self.last_lap_time = 0
         self.player_car_index = 0  # Usually 0 for the player
         
+        # CRITICAL: Track listener state to avoid processing old laps
+        self.listener_start_time = None  # When listener was started
+        self.session_start_detected = False  # Whether we detected session start
+        self.baseline_lap_established = False  # Whether we have established current lap as baseline
+        self.processed_lap_times = set()  # Track which lap times we've already seen
+        
+        # CRITICAL: Track invalid flags DURING lap progression, not just at completion
+        self.current_lap_invalid_detected = False  # Track if current lap was ever marked invalid
+        self.current_lap_penalties_detected = 0  # Track penalties accumulated during current lap
+        self.current_lap_number = 0  # Track which lap we're monitoring
+        
         # Lap processing delay to avoid race conditions
         self.pending_laps = {}  # Track pending laps with their data
         self.lap_delay_frames = 3  # Wait 3 frames before processing
@@ -120,9 +131,14 @@ class F1TelemetryListener:
             self.socket.bind(('0.0.0.0', self.port))
             self.running = True
             
+            # Record when listener started
+            self.listener_start_time = datetime.now()
+            
             print(f"🏎️ F1 2025 Telemetry Listener started on port {self.port}")
+            print(f"⏰ Listener started at: {self.listener_start_time.strftime('%H:%M:%S')}")
             print("🎯 Monitoring for Time Trial sessions...")
             print("⚠️  Make sure F1 2025 UDP telemetry is enabled in game settings!")
+            print("🔄 IMPORTANT: Only laps driven AFTER this point will be processed!")
             print("📡 Waiting for telemetry data...\n")
             
             while self.running:
@@ -273,26 +289,89 @@ class F1TelemetryListener:
                 
             player_lap_data = packet.lap_data[self.player_car_index]
             
+            # CRITICAL: Do NOT update pending laps status - this causes race conditions!
+            # Invalid laps should be rejected BEFORE they are queued, not after
+            # The delayed processing system should use the ORIGINAL status when the lap was queued
+            
+            # CRITICAL: Establish baseline FIRST - before any other processing!
+            # Official field names from f1-packets library (without m_ prefix)
+            lap_time_ms = getattr(player_lap_data, 'last_lap_time_in_ms', 0)
+            current_lap_time_ms = getattr(player_lap_data, 'current_lap_time_in_ms', 0)
+            
+            # BASELINE CHECK: Do this BEFORE extracting sectors or validity checks
+            if not self.baseline_lap_established and lap_time_ms > 0:
+                print(f"🔄 BASELINE ESTABLISHED: Current lap {self.format_time(lap_time_ms)} set as baseline")
+                print(f"⚠️  This lap was driven BEFORE the listener started and will be IGNORED")
+                print(f"✅ Ready to process new laps driven after listener start!")
+                self.baseline_lap_established = True
+                self.last_lap_time = lap_time_ms  # Set baseline to prevent processing this lap
+                self.processed_lap_times.add(lap_time_ms)  # Mark as already seen
+                return  # Do not process this baseline lap AT ALL
+            
             # Extract timing data based on official F1 2025 specification
             try:
-                # Official field names from f1-packets library (without m_ prefix)
-                lap_time_ms = getattr(player_lap_data, 'last_lap_time_in_ms', 0)
-                current_lap_time_ms = getattr(player_lap_data, 'current_lap_time_in_ms', 0)
                 
-                # Sector times: combine minutes and milliseconds parts
+                # Extract sector times using correct F1 2025 field names
+                # According to F1 2025 UDP spec: sector times are split into minutes and milliseconds
                 s1_ms_part = getattr(player_lap_data, 'sector1_time_ms_part', 0)
                 s1_min_part = getattr(player_lap_data, 'sector1_time_minutes_part', 0)
-                sector1_ms = (s1_min_part * 60000) + s1_ms_part
-                
-                s2_ms_part = getattr(player_lap_data, 'sector2_time_ms_part', 0)
+                s2_ms_part = getattr(player_lap_data, 'sector2_time_ms_part', 0) 
                 s2_min_part = getattr(player_lap_data, 'sector2_time_minutes_part', 0)
+                
+                # Combine minutes and milliseconds (minutes * 60000 + milliseconds)
+                sector1_ms = (s1_min_part * 60000) + s1_ms_part
                 sector2_ms = (s2_min_part * 60000) + s2_ms_part
+                
+                print(f"🔍 SECTOR DEBUG: S1_ms={s1_ms_part}, S1_min={s1_min_part}, Total_S1={sector1_ms}")
+                print(f"🔍 SECTOR DEBUG: S2_ms={s2_ms_part}, S2_min={s2_min_part}, Total_S2={sector2_ms}")
+                
+                # Try alternative field names if primary extraction fails
+                if sector1_ms == 0 and sector2_ms == 0:
+                    print(f"⚠️  Primary sector extraction failed, trying alternative field names...")
+                    
+                    # Alternative field patterns to try
+                    alt_patterns = [
+                        ('sector1_time_in_ms', 'sector2_time_in_ms'),
+                        ('m_sector1TimeMSPart', 'm_sector2TimeMSPart'), 
+                        ('best_sector1_time_in_ms', 'best_sector2_time_in_ms')
+                    ]
+                    
+                    for s1_field, s2_field in alt_patterns:
+                        if hasattr(player_lap_data, s1_field) and hasattr(player_lap_data, s2_field):
+                            alt_s1 = getattr(player_lap_data, s1_field, 0)
+                            alt_s2 = getattr(player_lap_data, s2_field, 0)
+                            if alt_s1 > 0 or alt_s2 > 0:
+                                sector1_ms = alt_s1
+                                sector2_ms = alt_s2
+                                print(f"✅ Found alternative sectors: {s1_field}={alt_s1}, {s2_field}={alt_s2}")
+                                break
                 
                 # Calculate sector 3 from total lap time
                 if lap_time_ms > 0 and sector1_ms > 0 and sector2_ms > 0:
                     sector3_ms = lap_time_ms - sector1_ms - sector2_ms
+                    if sector3_ms < 0:
+                        # If calculation results in negative, sectors might be wrong
+                        print(f"⚠️  Sector 3 calculation negative ({sector3_ms}ms), using fallback")
+                        sector3_ms = 0
+                    else:
+                        print(f"✅ S3 calculated: {lap_time_ms} - {sector1_ms} - {sector2_ms} = {sector3_ms}")
                 else:
                     sector3_ms = 0
+                
+                # Final fallback: estimate sectors if all are zero but we have a lap time
+                if sector1_ms == 0 and sector2_ms == 0 and sector3_ms == 0 and lap_time_ms > 0:
+                    print(f"📊 All sectors zero, using track-specific estimates for lap time {lap_time_ms}ms")
+                    # Austria Red Bull Ring typical sector distribution
+                    if self.session_info and 'austria' in self.session_info.track_name.lower():
+                        sector1_ms = int(lap_time_ms * 0.256)  # ~25.6% for Austria S1
+                        sector2_ms = int(lap_time_ms * 0.443)  # ~44.3% for Austria S2 
+                        sector3_ms = int(lap_time_ms * 0.301)  # ~30.1% for Austria S3
+                    else:
+                        # Generic F1 track estimates
+                        sector1_ms = int(lap_time_ms * 0.30)   # ~30%
+                        sector2_ms = int(lap_time_ms * 0.40)   # ~40%
+                        sector3_ms = int(lap_time_ms * 0.30)   # ~30%
+                    print(f"📊 Estimated sectors: S1={sector1_ms}ms, S2={sector2_ms}ms, S3={sector3_ms}ms")
                 
                 # Lap validity and status information
                 current_lap_invalid = getattr(player_lap_data, 'current_lap_invalid', False)
@@ -303,24 +382,34 @@ class F1TelemetryListener:
                 driver_status = getattr(player_lap_data, 'driver_status', 0)
                 result_status = getattr(player_lap_data, 'result_status', 0)
                 
+                # CRITICAL: Track lap progression and invalid status during the ENTIRE lap
+                # Reset tracking when we start a new lap
+                if current_lap_num != self.current_lap_number:
+                    print(f"🔄 NEW LAP STARTED: Lap {current_lap_num} (was {self.current_lap_number})")
+                    self.current_lap_number = current_lap_num
+                    self.current_lap_invalid_detected = False  # Reset invalid flag for new lap
+                    self.current_lap_penalties_detected = 0   # Reset penalties for new lap
+                
+                # CRITICAL: Track if lap becomes invalid at ANY point during progression
+                if current_lap_invalid and not self.current_lap_invalid_detected:
+                    print(f"🚨 LAP BECAME INVALID DURING PROGRESSION! (Lap {current_lap_num})")
+                    print(f"   ⚠️  This lap will be PERMANENTLY MARKED as invalid")
+                    self.current_lap_invalid_detected = True
+                
+                # Track penalty accumulation during lap progression  
+                if penalties > self.current_lap_penalties_detected:
+                    print(f"🚨 PENALTIES ACCUMULATED DURING LAP! {penalties}s (was {self.current_lap_penalties_detected}s)")
+                    print(f"   ⚠️  This lap will be PERMANENTLY MARKED as penalized")
+                    self.current_lap_penalties_detected = penalties
+                
                 # Comprehensive debug output
                 print(f"🎯 LAP DATA DEBUG:")
                 print(f"   Last Lap: {self.format_time(lap_time_ms)} ({lap_time_ms}ms)")
                 print(f"   Current Lap: {self.format_time(current_lap_time_ms)} ({current_lap_time_ms}ms)")
                 print(f"   Sectors: S1:{self.format_time(sector1_ms)} | S2:{self.format_time(sector2_ms)} | S3:{self.format_time(sector3_ms)}")
                 print(f"   Validity: Invalid={current_lap_invalid}, Penalties={penalties}")
+                print(f"   Lap Tracking: Number={current_lap_num}, EverInvalid={self.current_lap_invalid_detected}, MaxPenalties={self.current_lap_penalties_detected}")
                 print(f"   Status: Position={car_position}, Lap={current_lap_num}, Pit={pit_status}, Driver={driver_status}, Result={result_status}")
-                
-                # CRITICAL: Check for invalid lap immediately after debug output
-                if current_lap_invalid:
-                    print(f"🚨 INVALID LAP DETECTED! current_lap_invalid={current_lap_invalid}")
-                    print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
-                    return  # Exit immediately, do not process this lap at all
-                
-                if penalties > 0:
-                    print(f"🚨 PENALTIES DETECTED! penalties={penalties} seconds")
-                    print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
-                    return  # Exit immediately, do not process this lap at all
                 
                 # Show all available attributes for debugging
                 print(f"   📋 ALL FIELDS: {[attr for attr in dir(player_lap_data) if not attr.startswith('_')]}")
@@ -328,37 +417,59 @@ class F1TelemetryListener:
                 print(f"❌ Field access error: {field_error}")
                 return
             
+            # CRITICAL: Establish baseline on first lap data to avoid processing old laps
+            if not self.baseline_lap_established and lap_time_ms > 0:
+                print(f"🔄 BASELINE ESTABLISHED: Current lap {self.format_time(lap_time_ms)} set as baseline")
+                print(f"⚠️  This lap was driven BEFORE the listener started and will be IGNORED")
+                print(f"✅ Ready to process new laps driven after listener start!")
+                self.baseline_lap_established = True
+                self.last_lap_time = lap_time_ms  # Set baseline to prevent processing this lap
+                self.processed_lap_times.add(lap_time_ms)  # Mark as already seen
+                return  # Do not process this baseline lap
+            
             # Check if this is a completed lap (basic conditions)
             if (lap_time_ms > 0 and 
                 lap_time_ms != self.last_lap_time and 
                 lap_time_ms > 30000 and  # Minimum 30 seconds
                 lap_time_ms < 300000):   # Maximum 5 minutes
                 
-                print(f"🔍 New completed lap detected: {self.format_time(lap_time_ms)}")
+                # CRITICAL: Only process laps that haven't been seen before
+                if lap_time_ms in self.processed_lap_times:
+                    print(f"🚫 SKIPPING: Lap {self.format_time(lap_time_ms)} already processed (old lap from before listener start)")
+                    return
                 
-                # CRITICAL: Use delayed processing to avoid race conditions
-                # F1 2025 sends lap time BEFORE invalid flags are set!
-                lap_key = f"{lap_time_ms}_{current_lap_num}"
+                print(f"🔍 NEW LAP DRIVEN WHILE LISTENER ACTIVE: {self.format_time(lap_time_ms)}")
+                print(f"✅ This lap was driven AFTER listener start - will be processed!")
                 
-                # Store lap data for delayed processing
-                self.pending_laps[lap_key] = {
-                    'lap_time_ms': lap_time_ms,
-                    'sector1_ms': sector1_ms,
-                    'sector2_ms': sector2_ms, 
-                    'sector3_ms': sector3_ms,
-                    'current_lap_invalid': current_lap_invalid,
-                    'penalties': penalties,
-                    'frames_remaining': self.lap_delay_frames,
-                    'lap_num': current_lap_num
-                }
+                # Mark this lap time as seen to prevent future processing
+                self.processed_lap_times.add(lap_time_ms)
                 
-                print(f"⏳ Lap queued for delayed processing (waiting {self.lap_delay_frames} frames for flags to stabilize)")
+                # IMMEDIATE PROCESSING: No more delayed processing to avoid race conditions!
+                # The invalid flags are checked BEFORE this point, so if we get here, the lap is valid
+                print(f"⚡ IMMEDIATE PROCESSING: Processing lap {self.format_time(lap_time_ms)} RIGHT NOW!")
+                
+                # CRITICAL: Use tracked invalid status instead of current moment status!
+                # The lap may have been invalid during progression but valid at completion
+                final_invalid_status = self.current_lap_invalid_detected or current_lap_invalid
+                final_penalty_status = max(self.current_lap_penalties_detected, penalties)
+                
+                print(f"🔍 FINAL VALIDATION CHECK:")
+                print(f"   Current moment: Invalid={current_lap_invalid}, Penalties={penalties}")
+                print(f"   Tracked during lap: EverInvalid={self.current_lap_invalid_detected}, MaxPenalties={self.current_lap_penalties_detected}")
+                print(f"   FINAL STATUS: Invalid={final_invalid_status}, Penalties={final_penalty_status}")
+                
+                # Final validation before processing using tracked status
+                is_valid_lap = self.validate_lap_with_tracking(lap_time_ms, final_invalid_status, final_penalty_status)
+                
+                if is_valid_lap:
+                    print(f"✅ Final validation passed - processing lap")
+                    self.handle_completed_lap(lap_time_ms, sector1_ms, sector2_ms, sector3_ms)
+                else:
+                    print(f"❌ Final validation failed - lap REJECTED")
+                    print(f"   REASON: Lap was invalid or penalized at some point during progression")
                 
                 # Update last lap time to prevent duplicate detection
                 self.last_lap_time = lap_time_ms
-                
-            # Process all pending laps
-            self.process_pending_laps()
                 
         except Exception as e:
             print(f"❌ Error processing lap data: {e}")
@@ -503,6 +614,31 @@ class F1TelemetryListener:
             return False
             
         print(f"✅ Lap validation passed: time={lap_time_ms}ms, invalid={current_lap_invalid}, penalties={penalties}")
+        return True
+    
+    def validate_lap_with_tracking(self, lap_time_ms: int, ever_invalid: bool, max_penalties: int) -> bool:
+        """Validate lap using tracked status during entire lap progression.
+        
+        This method uses the invalid/penalty flags tracked throughout the lap,
+        not just the current moment status which can change after crossing finish line.
+        """
+        # Check if lap was EVER marked as invalid during progression
+        if ever_invalid:
+            print(f"❌ Lap REJECTED: Was marked invalid at some point during lap progression")
+            return False
+            
+        # Check if lap accumulated any penalties during progression
+        if max_penalties > 0:
+            print(f"❌ Lap REJECTED: Accumulated {max_penalties}s penalties during lap progression")
+            return False
+            
+        # Time range validation (30 seconds to 5 minutes)
+        if lap_time_ms < 30000 or lap_time_ms > 300000:
+            print(f"❌ Lap REJECTED: time {lap_time_ms}ms outside valid range (30s-5min)")
+            return False
+            
+        print(f"✅ Lap ACCEPTED: Clean lap with no invalid flags or penalties during progression")
+        print(f"   Time: {lap_time_ms}ms, EverInvalid: {ever_invalid}, MaxPenalties: {max_penalties}")
         return True
     
     def handle_completed_lap(self, lap_time_ms: int, sector1_ms: int, 
