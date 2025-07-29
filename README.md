@@ -1,11 +1,13 @@
-# 🏎️ F1 Lap Bot - Advanced Telemetry  Discord Integration
+# 🏎️ F1 Lap Bot - Advanced Telemetry & Discord Integration
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![Discord.py](https://img.shields.io/badge/discord.py-2.0+-green.svg)](https://discordpy.readthedocs.io/)
 [![Clean Architecture](https://img.shields.io/badge/Architecture-Clean-brightgreen.svg)](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
- **The ultimate F1 gaming companion** - Track lap times, compete with friends, and analyze your performance with real-time telemetry integration for F1 2025.
+🏁 **The ultimate F1 gaming companion** - Track lap times, compete with friends, and analyze your performance with real-time telemetry integration for F1 2025.
+
+> **🎯 Perfect for F1 Discord communities who want professional lap time tracking with automatic telemetry integration!**
 
 ---
 
@@ -52,9 +54,9 @@
 
 ### Technical Excellence
 - **🏗️ Clean Architecture** - Domain-driven design with clear separation of concerns
-- **🧪 Comprehensive Testing** - 90%+ test coverage with unit and integration tests
 - **📱 RESTful API** - HTTP API for external integrations and telemetry
-- **🐳 Docker Ready** - Containerized deployment with docker-compose
+- **⚡ Production Ready** - Robust error handling and logging
+- **🔧 Easy Setup** - One-command installation and configuration
 
 ---
 
@@ -172,33 +174,19 @@ source f1bot-env/bin/activate  # On Windows: f1bot-env\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Option 2: Docker Installation
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/f1-lap-bot.git
-cd f1-lap-bot
-
-# Run with Docker Compose
-docker-compose up -d
-```
-
-### Option 3: Development Setup
+### Option 2: Development Setup
 
 ```bash
 # Clone and setup for development
 git clone https://github.com/yourusername/f1-lap-bot.git
 cd f1-lap-bot
 
-# Install with development dependencies
+# Run automated setup
+python setup.py
+
+# Or manual setup:
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests to verify setup
-pytest
+pip install -r requirements-dev.txt  # Optional: for development tools
 ```
 
 ---
@@ -583,59 +571,20 @@ ORDER BY total_submissions DESC;
 
 ---
 
-## 🧪 Testing
+## 🚀 One-Command Setup
 
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific test category
-pytest tests/unit/          # Unit tests only
-pytest tests/integration/   # Integration tests only
-pytest tests/e2e/           # End-to-end tests only
-
-# Run with verbose output
-pytest -v
-
-# Run tests in parallel
-pytest -n auto
-```
-
-### Test Structure
-
-```
-tests/
-├── unit/                   # Fast, isolated tests
-│   ├── domain/            # Domain logic tests
-│   ├── application/       # Use case tests
-│   └── infrastructure/    # Infrastructure tests
-├── integration/           # Database and API tests
-│   ├── persistence/       # Database integration
-│   └── discord/           # Discord API integration
-├── e2e/                   # Full system tests
-└── fixtures/              # Test data and helpers
-```
-
-### Test Coverage Goals
-
-- **Domain Layer**: 95%+ coverage
-- **Application Layer**: 90%+ coverage
-- **Infrastructure Layer**: 80%+ coverage
-- **Overall Project**: 85%+ coverage
-
-### Mutation Testing
-
-For critical business logic:
+For the easiest setup experience:
 
 ```bash
-# Run mutation tests on core domain
-mutmut run --paths-to-mutate=src/domain/
-mutmut results
+# Automated setup (recommended)
+python setup.py
+
+# This will:
+# 1. Check Python version
+# 2. Create virtual environment
+# 3. Install dependencies
+# 4. Setup configuration files
+# 5. Create necessary directories
 ```
 
 ---
@@ -772,15 +721,14 @@ python src/main.py  # Will recreate tables
 sqlite3 --version
 ```
 
-#### Docker Issues
+#### Performance Issues
 ```bash
-# Rebuild containers
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+# Check memory usage
+python -c "import psutil; print(f'Memory: {psutil.Process().memory_info().rss / 1024 / 1024:.1f} MB')"
 
-# Check container logs
-docker-compose logs f1-lap-bot
+# Check disk space
+dir /s f1_lap_bot.db  # Windows
+ls -lh f1_lap_bot.db  # Linux/Mac
 ```
 
 ### Debug Mode
