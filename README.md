@@ -11,7 +11,116 @@
 
 ---
 
-## 📋 Table of Contents
+## 📋 Features
+
+### Core Functionality
+- **🏁 Real-time Lap Time Tracking** - Automatic detection and recording of F1 2025 lap times
+- **🏆 Personal & Overall Leaderboards** - Track your progress and compete with friends
+- **📊 Detailed Performance Analytics** - Sector times, track-specific statistics, and trends
+- **🎯 Smart Time Trial Detection** - Only records times from valid Time Trial sessions
+
+### Discord Integration
+- **🤖 Slash Commands** - Modern Discord command interface
+- **🚨 Real-time Notifications** - Instant alerts for personal bests and records
+- **👥 Multi-user Support** - Individual tracking for each Discord user
+- **📈 Rich Embeds** - Beautiful lap time displays with track information
+
+### Telemetry Features
+- **📡 UDP Telemetry Listener** - Direct integration with F1 2025 game data
+- **✅ Lap Validation** - Sophisticated detection of valid/invalid laps
+- **🛡️ Anti-cheat Protection** - Filtering of unrealistic times and penalties
+- **🔄 Auto-submission** - Seamless integration between game and Discord
+
+### Technical Excellence
+- **🏗️ Clean Architecture** - Domain-driven design with clear separation of concerns
+- **📱 RESTful API** - HTTP API for external integrations and telemetry
+- **⚡ Production Ready** - Robust error handling and logging
+- **🔧 Easy Setup** - One-command installation and configuration
+
+---
+
+## 🎮 Game Setup
+
+### F1 2025 Telemetry Configuration
+
+1. **Launch F1 2025**
+2. **Navigate to Settings** → **Telemetry Settings**
+3. **Enable UDP Telemetry**:
+   - **UDP Telemetry**: `On`
+   - **UDP Port**: `20777` (default)
+   - **UDP Format**: `2025`
+   - **UDP Rate**: `20Hz` or higher
+
+4. **Network Configuration**:
+   - **UDP IP Address**: `127.0.0.1` (for local use)
+   - Or your computer's IP address for remote setup
+
+### Supported Game Modes
+- ✅ **Time Trial** - Primary mode for lap time recording
+- ✅ **Practice Sessions** - Supported with manual validation
+- ❌ **Race Mode** - Not supported (safety reasons)
+- ❌ **Online Multiplayer** - Not supported
+
+### Track Support
+All F1 2025 official tracks are supported:
+- 🇧🇭 Bahrain International Circuit
+- 🇸🇦 Jeddah Corniche Circuit
+- 🇦🇺 Albert Park Circuit
+- 🇦🇿 Baku City Circuit
+- 🇺🇸 Miami International Autodrome
+- 🇮🇹 Autodromo Enzo e Dino Ferrari (Imola)
+- 🇲🇨 Circuit de Monaco
+- 🇪🇸 Circuit de Barcelona-Catalunya
+- 🇨🇦 Circuit Gilles Villeneuve
+- 🇦🇹 Red Bull Ring
+- 🇬🇧 Silverstone Circuit
+- 🇭🇺 Hungaroring
+- 🇧🇪 Circuit de Spa-Francorchamps
+- 🇳🇱 Circuit Zandvoort
+- 🇮🇹 Autodromo Nazionale di Monza
+- 🇸🇬 Marina Bay Street Circuit
+- 🇯🇵 Suzuka International Racing Course
+- 🇶🇦 Lusail International Circuit
+- 🇺🇸 Circuit of the Americas
+- 🇲🇽 Autódromo José Carlos Pace
+- 🇺🇸 Las Vegas Street Circuit
+- 🇦🇪 Yas Marina Circuit
+
+---
+
+## 📡 Telemetry Integration
+
+### Automatic Lap Detection
+
+The bot automatically detects and validates lap times from F1 2025:
+
+```python
+# Example: Automatic lap submission flow
+1. F1 2025 sends UDP telemetry data
+2. Bot validates lap (time trial mode, valid sectors, no penalties)
+3. Personal best check
+4. Automatic submission to Discord
+5. Real-time notification to channel
+```
+
+### Lap Validation Rules
+
+- **✅ Valid Conditions**:
+  - Time Trial mode only
+  - Lap time between 30 seconds and 5 minutes
+  - No corner cutting penalties
+  - No wall riding penalties
+  - No flashback usage during lap
+  - Complete sector times available
+
+- **❌ Invalid Conditions**:
+  - Practice/Race modes
+  - Penalty flags active
+  - Incomplete lap data
+  - Unrealistic lap times
+  - Connection interruptions
+
+---
 
 - [🌟 Features](#-features)
 - [🏗️ Architecture](#️-architecture)
@@ -366,7 +475,6 @@ All F1 2025 official tracks are supported:
 
 ---
 
-## 🤖 Discord Bot Commands
 
 ### Lap Time Commands
 
