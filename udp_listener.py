@@ -273,6 +273,11 @@ class F1TelemetryListener:
                 
             player_lap_data = packet.lap_data[self.player_car_index]
             
+            # Update pending laps state with current lap status
+            for lap_key in list(self.pending_laps):
+                self.pending_laps[lap_key]['current_lap_invalid'] = getattr(player_lap_data, 'current_lap_invalid', False)
+                self.pending_laps[lap_key]['penalties'] = getattr(player_lap_data, 'penalties', 0)
+            
             # Extract timing data based on official F1 2025 specification
             try:
                 # Official field names from f1-packets library (without m_ prefix)
