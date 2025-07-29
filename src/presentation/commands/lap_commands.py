@@ -1682,6 +1682,150 @@ class LapCommands(commands.Cog):
         }
         return emojis.get(skill_level, "🏁")
     
+    @app_commands.command(name="recalculate", description="🔄 Recalculate all ELO ratings based on existing lap times")
+    async def recalculate_elo_ratings(self, interaction: discord.Interaction):
+        """Recalculate all ELO ratings based on existing lap times."""
+        await interaction.response.defer()
+        
+        try:
+            # Only allow administrators or bot owner to run this command
+            if not interaction.user.guild_permissions.administrator:
+                error_embed = discord.Embed(
+                    title="❌ Permission Denied",
+                    description="Only administrators can recalculate ELO ratings.",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                return
+            
+            embed = discord.Embed(
+                title="🔄 Recalculating ELO Ratings",
+                description="Processing all lap times to recalculate ELO ratings...\nThis may take a moment.",
+                color=discord.Color.blue()
+            )
+            message = await interaction.followup.send(embed=embed)
+            
+            # Get all users from lap times
+            all_users = set()
+            from ...domain.value_objects.track_name import TrackName
+            
+            # Get all available tracks that have lap times
+            available_tracks = TrackName.get_all_valid_tracks()
+            processed_laps = 0
+            updated_users = set()
+            
+            # Reset all ELO ratings to default (1500)
+            all_ratings = await self.bot.driver_rating_repository.find_all_ratings()
+            for rating in all_ratings:
+                rating._current_elo = 1500
+                rating._peak_elo = 1500
+                rating._matches_played = 0
+                rating._wins = 0
+                rating._losses = 0
+                await self.bot.driver_rating_repository.save(rating)
+            
+            # Process each track chronologically
+            for track_key in available_tracks:
+                try:
+                    track = TrackName(track_key)
+                    
+                    # Get all lap times for this track, ordered by creation time
+                    all_track_times = await self.bot.lap_time_repository.find_recent_by_track(track, 1000)
+                    
+                    if not all_track_times:
+                        continue
+                    
+                    # Sort by creation time (oldest first) for chronological processing
+                    all_track_times.sort(key=lambda x: x.created_at)
+                    
+                    # Process each lap time chronologically
+                    for lap_time in all_track_times:
+                        try:
+                            # Update ELO for this lap submission
+                            if self.bot.submit_lap_time_use_case._update_elo_use_case:
+                                await self.bot.submit_lap_time_use_case._update_elo_use_case.execute(lap_time)
+                                processed_laps += 1
+                                updated_users.add(lap_time.username)
+                        except Exception as e:
+                            print(f"Error processing lap time {lap_time.lap_id}: {e}")
+                            continue
+                            
+                except Exception as e:
+                    print(f"Error processing track {track_key}: {e}")
+                    continue
+            
+            # Create or update missing ELO ratings for users without them
+            from ...domain.entities.driver_rating import DriverRating
+            all_lap_users = set()
+            
+            for track_key in available_tracks:
+                try:
+                    track = TrackName(track_key)
+                    track_times = await self.bot.lap_time_repository.find_recent_by_track(track, 1000)
+                    for lap_time in track_times:
+                        all_lap_users.add((lap_time.user_id, lap_time.username))
+                except:
+                    continue
+            
+            created_users = 0
+            for user_id, username in all_lap_users:
+                existing_rating = await self.bot.driver_rating_repository.find_by_user_id(user_id)
+                if not existing_rating:
+                    new_rating = DriverRating(user_id=user_id, username=username)
+                    await self.bot.driver_rating_repository.save(new_rating)
+                    created_users += 1
+                    updated_users.add(username)
+            
+            # Get final statistics
+            final_ratings = await self.bot.driver_rating_repository.find_all_ratings()
+            
+            # Create success embed
+            success_embed = discord.Embed(
+                title="✅ ELO Recalculation Complete",
+                description="All ELO ratings have been recalculated based on existing lap times.",
+                color=discord.Color.green()
+            )
+            
+            success_embed.add_field(
+                name="📊 Statistics",
+                value=f"**Processed**: {processed_laps} lap times\n"
+                      f"**Updated Users**: {len(updated_users)}\n"
+                      f"**Created Ratings**: {created_users}\n"
+                      f"**Total Active**: {len(final_ratings)} drivers",
+                inline=False
+            )
+            
+            # Show top 5 ELO ratings
+            if final_ratings:
+                top_ratings = sorted(final_ratings, key=lambda x: x.current_elo, reverse=True)[:5]
+                leaderboard_text = ""
+                for i, rating in enumerate(top_ratings):
+                    skill_emoji = self._get_skill_emoji(rating.skill_level)
+                    leaderboard_text += f"{i+1}. **{rating.username}** {skill_emoji} - `{rating.current_elo}` ELO\n"
+                
+                success_embed.add_field(
+                    name="🏆 Updated Top 5",
+                    value=leaderboard_text,
+                    inline=False
+                )
+            
+            success_embed.add_field(
+                name="💡 Next Steps",
+                value="Use `/lap elo-leaderboard` to see the updated rankings!",
+                inline=False
+            )
+            
+            await message.edit(embed=success_embed)
+            
+        except Exception as e:
+            print(f"❌ Error in recalculate command: {e}")
+            error_embed = discord.Embed(
+                title="❌ Recalculation Failed",
+                description=f"An error occurred during ELO recalculation: {str(e)}",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
+    
     @app_commands.command(name="elo-rank-help", description="📊 Show the complete ELO ranking system and symbols")
     async def show_elo_rank_help(self, interaction: discord.Interaction):
         """Display comprehensive ELO ranking system information."""
