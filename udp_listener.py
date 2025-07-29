@@ -284,10 +284,9 @@ class F1TelemetryListener:
                 
             player_lap_data = packet.lap_data[self.player_car_index]
             
-            # Update pending laps state with current lap status
-            for lap_key in list(self.pending_laps):
-                self.pending_laps[lap_key]['current_lap_invalid'] = getattr(player_lap_data, 'current_lap_invalid', False)
-                self.pending_laps[lap_key]['penalties'] = getattr(player_lap_data, 'penalties', 0)
+            # CRITICAL: Do NOT update pending laps status - this causes race conditions!
+            # Invalid laps should be rejected BEFORE they are queued, not after
+            # The delayed processing system should use the ORIGINAL status when the lap was queued
             
             # Extract timing data based on official F1 2025 specification
             try:
@@ -378,11 +377,13 @@ class F1TelemetryListener:
                 if current_lap_invalid:
                     print(f"🚨 INVALID LAP DETECTED! current_lap_invalid={current_lap_invalid}")
                     print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
+                    print(f"   🚫 STOPPING PROCESSING - Invalid lap will NOT be queued")
                     return  # Exit immediately, do not process this lap at all
                 
                 if penalties > 0:
                     print(f"🚨 PENALTIES DETECTED! penalties={penalties} seconds")
                     print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
+                    print(f"   🚫 STOPPING PROCESSING - Penalized lap will NOT be queued")
                     return  # Exit immediately, do not process this lap at all
                 
                 # Show all available attributes for debugging
