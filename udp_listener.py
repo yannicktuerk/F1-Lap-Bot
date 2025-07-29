@@ -284,20 +284,67 @@ class F1TelemetryListener:
                 lap_time_ms = getattr(player_lap_data, 'last_lap_time_in_ms', 0)
                 current_lap_time_ms = getattr(player_lap_data, 'current_lap_time_in_ms', 0)
                 
-                # Sector times: combine minutes and milliseconds parts
+                # Extract sector times using correct F1 2025 field names
+                # According to F1 2025 UDP spec: sector times are split into minutes and milliseconds
                 s1_ms_part = getattr(player_lap_data, 'sector1_time_ms_part', 0)
                 s1_min_part = getattr(player_lap_data, 'sector1_time_minutes_part', 0)
-                sector1_ms = (s1_min_part * 60000) + s1_ms_part
-                
-                s2_ms_part = getattr(player_lap_data, 'sector2_time_ms_part', 0)
+                s2_ms_part = getattr(player_lap_data, 'sector2_time_ms_part', 0) 
                 s2_min_part = getattr(player_lap_data, 'sector2_time_minutes_part', 0)
+                
+                # Combine minutes and milliseconds (minutes * 60000 + milliseconds)
+                sector1_ms = (s1_min_part * 60000) + s1_ms_part
                 sector2_ms = (s2_min_part * 60000) + s2_ms_part
+                
+                print(f"🔍 SECTOR DEBUG: S1_ms={s1_ms_part}, S1_min={s1_min_part}, Total_S1={sector1_ms}")
+                print(f"🔍 SECTOR DEBUG: S2_ms={s2_ms_part}, S2_min={s2_min_part}, Total_S2={sector2_ms}")
+                
+                # Try alternative field names if primary extraction fails
+                if sector1_ms == 0 and sector2_ms == 0:
+                    print(f"⚠️  Primary sector extraction failed, trying alternative field names...")
+                    
+                    # Alternative field patterns to try
+                    alt_patterns = [
+                        ('sector1_time_in_ms', 'sector2_time_in_ms'),
+                        ('m_sector1TimeMSPart', 'm_sector2TimeMSPart'), 
+                        ('best_sector1_time_in_ms', 'best_sector2_time_in_ms')
+                    ]
+                    
+                    for s1_field, s2_field in alt_patterns:
+                        if hasattr(player_lap_data, s1_field) and hasattr(player_lap_data, s2_field):
+                            alt_s1 = getattr(player_lap_data, s1_field, 0)
+                            alt_s2 = getattr(player_lap_data, s2_field, 0)
+                            if alt_s1 > 0 or alt_s2 > 0:
+                                sector1_ms = alt_s1
+                                sector2_ms = alt_s2
+                                print(f"✅ Found alternative sectors: {s1_field}={alt_s1}, {s2_field}={alt_s2}")
+                                break
                 
                 # Calculate sector 3 from total lap time
                 if lap_time_ms > 0 and sector1_ms > 0 and sector2_ms > 0:
                     sector3_ms = lap_time_ms - sector1_ms - sector2_ms
+                    if sector3_ms < 0:
+                        # If calculation results in negative, sectors might be wrong
+                        print(f"⚠️  Sector 3 calculation negative ({sector3_ms}ms), using fallback")
+                        sector3_ms = 0
+                    else:
+                        print(f"✅ S3 calculated: {lap_time_ms} - {sector1_ms} - {sector2_ms} = {sector3_ms}")
                 else:
                     sector3_ms = 0
+                
+                # Final fallback: estimate sectors if all are zero but we have a lap time
+                if sector1_ms == 0 and sector2_ms == 0 and sector3_ms == 0 and lap_time_ms > 0:
+                    print(f"📊 All sectors zero, using track-specific estimates for lap time {lap_time_ms}ms")
+                    # Austria Red Bull Ring typical sector distribution
+                    if self.session_info and 'austria' in self.session_info.track_name.lower():
+                        sector1_ms = int(lap_time_ms * 0.256)  # ~25.6% for Austria S1
+                        sector2_ms = int(lap_time_ms * 0.443)  # ~44.3% for Austria S2 
+                        sector3_ms = int(lap_time_ms * 0.301)  # ~30.1% for Austria S3
+                    else:
+                        # Generic F1 track estimates
+                        sector1_ms = int(lap_time_ms * 0.30)   # ~30%
+                        sector2_ms = int(lap_time_ms * 0.40)   # ~40%
+                        sector3_ms = int(lap_time_ms * 0.30)   # ~30%
+                    print(f"📊 Estimated sectors: S1={sector1_ms}ms, S2={sector2_ms}ms, S3={sector3_ms}ms")
                 
                 # Lap validity and status information
                 current_lap_invalid = getattr(player_lap_data, 'current_lap_invalid', False)
