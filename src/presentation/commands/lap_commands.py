@@ -1748,11 +1748,19 @@ class LapCommands(commands.Cog):
                     # Process each lap time chronologically
                     for lap_time in all_track_times:
                         try:
-                            # Update ELO for this lap submission
-                            if self.bot.submit_lap_time_use_case._update_elo_use_case:
-                                await self.bot.submit_lap_time_use_case._update_elo_use_case.execute(lap_time)
-                                processed_laps += 1
-                                updated_users.add(lap_time.username)
+                            # Import the ELO use case directly
+                            from ...application.use_cases.update_elo_ratings import UpdateEloRatingsUseCase
+                            
+                            # Create a fresh ELO use case instance
+                            elo_use_case = UpdateEloRatingsUseCase(
+                                self.bot.driver_rating_repository,
+                                self.bot.lap_time_repository
+                            )
+                            
+                            # Update ELO for this lap submission without validation
+                            await elo_use_case.execute(lap_time)
+                            processed_laps += 1
+                            updated_users.add(lap_time.username)
                         except Exception as e:
                             print(f"Error processing lap time {lap_time.lap_id}: {e}")
                             continue
