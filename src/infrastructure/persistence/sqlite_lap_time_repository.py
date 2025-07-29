@@ -32,6 +32,9 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                     is_personal_best BOOLEAN DEFAULT 0,
                     is_overall_best BOOLEAN DEFAULT 0,
                     is_bot BOOLEAN DEFAULT 0,
+                    sector1_ms INTEGER,
+                    sector2_ms INTEGER,
+                    sector3_ms INTEGER,
                     created_at TEXT NOT NULL
                 )
             """)
@@ -42,6 +45,15 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 await db.commit()
             except:
                 pass  # Column already exists
+            
+            # Add sector columns to existing tables (migration)
+            try:
+                await db.execute("ALTER TABLE lap_times ADD COLUMN sector1_ms INTEGER")
+                await db.execute("ALTER TABLE lap_times ADD COLUMN sector2_ms INTEGER")
+                await db.execute("ALTER TABLE lap_times ADD COLUMN sector3_ms INTEGER")
+                await db.commit()
+            except:
+                pass  # Columns already exist
             
             # Create indexes for better query performance
             await db.execute("CREATE INDEX IF NOT EXISTS idx_track_time ON lap_times(track_key, total_milliseconds)")
@@ -61,8 +73,9 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 INSERT INTO lap_times (
                     lap_id, user_id, username, track_key,
                     time_minutes, time_seconds, time_milliseconds, total_milliseconds,
-                    is_personal_best, is_overall_best, is_bot, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_personal_best, is_overall_best, is_bot,
+                    sector1_ms, sector2_ms, sector3_ms, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 lap_id,
                 lap_time.user_id,
@@ -75,6 +88,9 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 lap_time.is_personal_best,
                 lap_time.is_overall_best,
                 False,  # is_bot - always False since we prevent bots from submitting
+                lap_time.sector1_ms,
+                lap_time.sector2_ms,
+                lap_time.sector3_ms,
                 lap_time.created_at.isoformat()
             ))
             await db.commit()
@@ -259,6 +275,53 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 'average_time_seconds': avg_time_seconds
             }
     
+    async def get_fastest_sectors_by_track(self, track: TrackName) -> dict:
+        """Get the fastest sectors for a specific track from all drivers."""
+        await self._ensure_table_exists()
+        
+        async with aiosqlite.connect(self._database_path) as db:
+            # Find fastest sector 1
+            cursor = await db.execute("""
+                SELECT MIN(sector1_ms) as fastest_s1, username 
+                FROM lap_times 
+                WHERE track_key = ? AND sector1_ms IS NOT NULL AND sector1_ms > 0
+                GROUP BY username
+                ORDER BY fastest_s1 ASC
+                LIMIT 1
+            """, (track.key,))
+            s1_result = await cursor.fetchone()
+            
+            # Find fastest sector 2
+            cursor = await db.execute("""
+                SELECT MIN(sector2_ms) as fastest_s2, username 
+                FROM lap_times 
+                WHERE track_key = ? AND sector2_ms IS NOT NULL AND sector2_ms > 0
+                GROUP BY username
+                ORDER BY fastest_s2 ASC
+                LIMIT 1
+            """, (track.key,))
+            s2_result = await cursor.fetchone()
+            
+            # Find fastest sector 3
+            cursor = await db.execute("""
+                SELECT MIN(sector3_ms) as fastest_s3, username 
+                FROM lap_times 
+                WHERE track_key = ? AND sector3_ms IS NOT NULL AND sector3_ms > 0
+                GROUP BY username
+                ORDER BY fastest_s3 ASC
+                LIMIT 1
+            """, (track.key,))
+            s3_result = await cursor.fetchone()
+            
+            return {
+                'sector1_ms': s1_result[0] if s1_result and s1_result[0] else None,
+                'sector1_driver': s1_result[1] if s1_result else None,
+                'sector2_ms': s2_result[0] if s2_result and s2_result[0] else None,
+                'sector2_driver': s2_result[1] if s2_result else None,
+                'sector3_ms': s3_result[0] if s3_result and s3_result[0] else None,
+                'sector3_driver': s3_result[1] if s3_result else None
+            }
+    
     def _row_to_lap_time(self, row) -> LapTime:
         """Convert a database row to a LapTime entity."""
         # Reconstruct the time format from components
@@ -269,13 +332,21 @@ class SQLiteLapTimeRepository(LapTimeRepository):
         time_format = TimeFormat(time_string)
         track_name = TrackName(row['track_key'])
         
+        # Extract sector data from row, defaulting to None if not present
+        sector1_ms = row.get('sector1_ms') if row.get('sector1_ms') is not None else None
+        sector2_ms = row.get('sector2_ms') if row.get('sector2_ms') is not None else None
+        sector3_ms = row.get('sector3_ms') if row.get('sector3_ms') is not None else None
+        
         lap_time = LapTime(
             user_id=row['user_id'],
             username=row['username'],
             time_format=time_format,
             track_name=track_name,
             lap_id=row['lap_id'],
-            created_at=datetime.fromisoformat(row['created_at'])
+            created_at=datetime.fromisoformat(row['created_at']),
+            sector1_ms=sector1_ms,
+            sector2_ms=sector2_ms,
+            sector3_ms=sector3_ms
         )
         
         if row['is_personal_best']:

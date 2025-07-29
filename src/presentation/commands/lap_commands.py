@@ -244,7 +244,29 @@ class LapCommands(commands.Cog):
                           f"Average: `{self._format_time_seconds(stats['average_time_seconds'])}`",
                     inline=True
                 )
-            
+            # Get fastest sectors
+            fastest_sectors = await self.bot.lap_time_repository.get_fastest_sectors_by_track(track_obj)
+
+            if fastest_sectors['sector1_ms'] is not None and fastest_sectors['sector2_ms'] is not None and fastest_sectors['sector3_ms'] is not None:
+                total_fastest_time_ms = (
+                    fastest_sectors['sector1_ms'] + 
+                    fastest_sectors['sector2_ms'] + 
+                    fastest_sectors['sector3_ms']
+                )
+                fastest_time_str = self._format_time_seconds(total_fastest_time_ms / 1000.0)
+                s1_time_str = self._format_time_seconds(fastest_sectors['sector1_ms'] / 1000.0)
+                s2_time_str = self._format_time_seconds(fastest_sectors['sector2_ms'] / 1000.0)
+                s3_time_str = self._format_time_seconds(fastest_sectors['sector3_ms'] / 1000.0)
+                
+                embed.add_field(
+                    name="🚀 Fastest Sectors",
+                    value=(f"S1: `{s1_time_str}` by **{fastest_sectors['sector1_driver']}**\n"
+                           f"S2: `{s2_time_str}` by **{fastest_sectors['sector2_driver']}**\n"
+                           f"S3: `{s3_time_str}` by **{fastest_sectors['sector3_driver']}**\n"
+                           f"**Total:** `{fastest_time_str}`"),
+                    inline=False
+                )
+
             await interaction.followup.send(embed=embed)
             
         except ValueError as e:

@@ -15,7 +15,10 @@ class LapTime:
         time_format: TimeFormat,
         track_name: TrackName,
         lap_id: Optional[str] = None,
-        created_at: Optional[datetime] = None
+        created_at: Optional[datetime] = None,
+        sector1_ms: Optional[int] = None,
+        sector2_ms: Optional[int] = None,
+        sector3_ms: Optional[int] = None
     ):
         self._lap_id = lap_id
         self._user_id = user_id
@@ -25,6 +28,9 @@ class LapTime:
         self._created_at = created_at or datetime.utcnow()
         self._is_personal_best = False
         self._is_overall_best = False
+        self._sector1_ms = sector1_ms
+        self._sector2_ms = sector2_ms
+        self._sector3_ms = sector3_ms
     
     @property
     def lap_id(self) -> Optional[str]:
@@ -57,6 +63,18 @@ class LapTime:
     @property
     def is_overall_best(self) -> bool:
         return self._is_overall_best
+    
+    @property
+    def sector1_ms(self) -> Optional[int]:
+        return self._sector1_ms
+    
+    @property
+    def sector2_ms(self) -> Optional[int]:
+        return self._sector2_ms
+    
+    @property
+    def sector3_ms(self) -> Optional[int]:
+        return self._sector3_ms
     
     def mark_as_personal_best(self) -> None:
         """Mark this lap time as a personal best for the user."""
