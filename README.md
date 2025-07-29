@@ -93,11 +93,32 @@ src/
 ## 🚀 Quick Start
 
 ### Prerequisites
+- **Python 3.10+** ([Download Python](https://www.python.org/downloads/))
+- **F1 2025 Game** with UDP telemetry enabled
+- **Discord Bot Token** ([Discord Developer Portal](https://discord.com/developers/applications))
+
+### Prerequisites
 - **Python 3.10+** installed
 - **F1 2025 Game** with UDP telemetry enabled
 - **Discord Bot Token** (see [Discord Bot Setup](#discord-bot-setup))
 
 ### Option 1: Full Bot Setup (1-Minute Setup)
+```bash
+# Clone the repository
+git clone https://github.com/yannicktuerk/F1-Lap-Bot.git
+cd f1-lap-bot
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+copy .env.example .env  # On Windows
+cp .env.example .env    # On Linux/Mac
+# Edit .env with your Discord bot token
+
+# Run the bot
+python src/main.py
+```
 ```bash
 # Clone the repository
 git clone https://github.com/yannicktuerk/F1-Lap-Bot.git
@@ -160,6 +181,18 @@ That's it! Your F1 Lap Bot is now running and ready to track lap times! 🎉
 ## 📦 Installation
 
 ### Option 1: Standard Installation
+```bash
+# Clone the repository
+git clone https://github.com/yannicktuerk/f1-lap-bot.git
+cd f1-lap-bot
+
+# Create virtual environment (recommended)
+python -m venv f1bot-env
+source f1bot-env/bin/activate  # On Windows: f1bot-env\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
 
 ```bash
 # Clone the repository
@@ -175,6 +208,18 @@ pip install -r requirements.txt
 ```
 
 ### Option 2: Development Setup
+```bash
+# Clone and setup for development
+git clone https://github.com/yannicktuerk/f1-lap-bot.git
+cd f1-lap-bot
+
+# Run automated setup
+python setup.py  # Ensure setup.py is configured correctly or remove if no longer in use
+
+# Or manual setup:
+pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Optional: for development tools
+```
 
 ```bash
 # Clone and setup for development
