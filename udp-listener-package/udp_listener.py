@@ -307,31 +307,47 @@ class F1TelemetryListener:
                 print(f"   Validity: Invalid={current_lap_invalid}, Penalties={penalties}")
                 print(f"   Status: Position={car_position}, Lap={current_lap_num}, Pit={pit_status}, Driver={driver_status}, Result={result_status}")
                 
+                # CRITICAL: Check for invalid lap immediately after debug output
+                if current_lap_invalid:
+                    print(f"🚨 INVALID LAP DETECTED! current_lap_invalid={current_lap_invalid}")
+                    print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
+                    return  # Exit immediately, do not process this lap at all
+                
+                if penalties > 0:
+                    print(f"🚨 PENALTIES DETECTED! penalties={penalties} seconds")
+                    print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
+                    return  # Exit immediately, do not process this lap at all
+                
                 # Show all available attributes for debugging
                 print(f"   📋 ALL FIELDS: {[attr for attr in dir(player_lap_data) if not attr.startswith('_')]}")
             except Exception as field_error:
                 print(f"❌ Field access error: {field_error}")
                 return
             
-            # Check if this is a completed, valid lap
+            # Check if this is a completed lap (basic conditions)
             if (lap_time_ms > 0 and 
                 lap_time_ms != self.last_lap_time and 
                 lap_time_ms > 30000 and  # Minimum 30 seconds
                 lap_time_ms < 300000):   # Maximum 5 minutes
                 
-                # Validate lap
+                print(f"🔍 Processing completed lap: {self.format_time(lap_time_ms)}")
+                
+                # CRITICAL: Validate lap FIRST before any processing
                 is_valid_lap = self.validate_lap(
                     lap_time_ms, current_lap_invalid, penalties
                 )
                 
+                # Update last lap time regardless to prevent duplicate processing
+                self.last_lap_time = lap_time_ms
+                
                 if is_valid_lap:
+                    print(f"✅ Lap validation passed - processing lap")
                     self.handle_completed_lap(
                         lap_time_ms, sector1_ms, sector2_ms, sector3_ms
                     )
                 else:
-                    print(f"⚠️  Invalid lap detected (time: {self.format_time(lap_time_ms)}) - not submitted")
-                
-                self.last_lap_time = lap_time_ms
+                    print(f"❌ Lap validation failed - lap REJECTED and NOT processed")
+                    print(f"   Time: {self.format_time(lap_time_ms)}, Invalid: {current_lap_invalid}, Penalties: {penalties}")
                 
         except Exception as e:
             print(f"❌ Error processing lap data: {e}")
@@ -413,24 +429,29 @@ class F1TelemetryListener:
         except Exception as e:
             print(f"❌ Error processing Time Trial data: {e}")
     
-    def validate_lap(self, lap_time_ms: int, current_lap_invalid: bool, lap_valid_flags: int) -> bool:
-        """Validate if a lap is legitimate and should be submitted."""
-        # Check basic lap validity
+    def validate_lap(self, lap_time_ms: int, current_lap_invalid: bool, penalties: int) -> bool:
+        """Validate if a lap is legitimate and should be submitted.
+        
+        Based on F1 2025 UDP specification:
+        - current_lap_invalid: 0 = valid, 1 = invalid
+        - penalties: Accumulated time penalties in seconds
+        """
+        # Check if the current lap is marked as invalid
         if current_lap_invalid:
+            print(f"❌ Lap invalid: current_lap_invalid flag is set")
             return False
             
-        # Check lap validity flags
-        if lap_valid_flags & (LAP_INVALID_CORNER_CUTTING | 
-                             LAP_INVALID_PARKING |
-                             LAP_INVALID_PIT_LANE |
-                             LAP_INVALID_WALL_RIDING |
-                             LAP_INVALID_FLASHBACK):
+        # Check if there are any penalties on this lap
+        if penalties > 0:
+            print(f"❌ Lap invalid: {penalties} seconds of penalties accumulated")
             return False
             
         # Time range validation (30 seconds to 5 minutes)
         if lap_time_ms < 30000 or lap_time_ms > 300000:
+            print(f"❌ Lap invalid: time {lap_time_ms}ms outside valid range (30s-5min)")
             return False
             
+        print(f"✅ Lap validation passed: time={lap_time_ms}ms, invalid={current_lap_invalid}, penalties={penalties}")
         return True
     
     def handle_completed_lap(self, lap_time_ms: int, sector1_ms: int, 

@@ -307,6 +307,17 @@ class F1TelemetryListener:
                 print(f"   Validity: Invalid={current_lap_invalid}, Penalties={penalties}")
                 print(f"   Status: Position={car_position}, Lap={current_lap_num}, Pit={pit_status}, Driver={driver_status}, Result={result_status}")
                 
+                # CRITICAL: Check for invalid lap immediately after debug output
+                if current_lap_invalid:
+                    print(f"🚨 INVALID LAP DETECTED! current_lap_invalid={current_lap_invalid}")
+                    print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
+                    return  # Exit immediately, do not process this lap at all
+                
+                if penalties > 0:
+                    print(f"🚨 PENALTIES DETECTED! penalties={penalties} seconds")
+                    print(f"   ❌ This lap will be REJECTED: {self.format_time(lap_time_ms)}")
+                    return  # Exit immediately, do not process this lap at all
+                
                 # Show all available attributes for debugging
                 print(f"   📋 ALL FIELDS: {[attr for attr in dir(player_lap_data) if not attr.startswith('_')]}")
             except Exception as field_error:
