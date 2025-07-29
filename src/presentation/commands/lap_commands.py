@@ -1683,6 +1683,7 @@ class LapCommands(commands.Cog):
         return emojis.get(skill_level, "🏁")
     
     @app_commands.command(name="recalculate", description="🔄 Recalculate all ELO ratings based on existing lap times")
+    @app_commands.checks.has_permissions(administrator=True)
     async def recalculate_elo_ratings(self, interaction: discord.Interaction):
         """Recalculate all ELO ratings based on existing lap times."""
         await interaction.response.defer()
@@ -2269,7 +2270,8 @@ class LapCommands(commands.Cog):
             # ELO Rating Commands
             elo_commands = (
                 "`/lap rating` - 🧠 Your AI-powered ELO skill rating\n"
-                "`/lap elo-leaderboard` - 🏆 ELO rating leaderboard"
+                "`/lap elo-leaderboard` - 🏆 ELO rating leaderboard\n"
+                "`/lap recalculate` - 🔄 Recalculate all ELO ratings (Admin only)"
             )
             
             embed.add_field(
