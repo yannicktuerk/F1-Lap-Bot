@@ -1,0 +1,2 @@
+# This file ensures the data directory is tracked by git
+# The data directory is required for the SQLite driver ratings database (data/f1_lap_bot.db)
