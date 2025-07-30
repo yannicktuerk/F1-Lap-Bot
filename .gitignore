@@ -112,3 +112,14 @@ udp_*.log
 # Personal configuration backups
 my_config.json
 personal_*.json
+
+# Temporary scripts and test files
+test_*.py
+consolidate_*.py
+*.sql
+*.zip
+
+# Old UDP listener files
+udp_listener.py
+f1-udp-listener-package/
+udp-listener-package/
