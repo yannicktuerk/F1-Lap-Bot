@@ -293,6 +293,41 @@ class TrackName:
         return self.TRACK_DATA[self._normalized_name]['flag_url']
     
     @property
+    def flag_emoji(self) -> str:
+        """Get a simple flag emoji for the track's country."""
+        # Simple emoji mapping for countries
+        emoji_map = {
+            'Bahrain': '🇧🇭',
+            'Saudi Arabia': '🇸🇦', 
+            'Australia': '🇦🇺',
+            'Azerbaijan': '🇦🇿',
+            'USA (Miami)': '🇺🇸',
+            'Italy (Imola)': '🇮🇹',
+            'Monaco': '🇲🇨',
+            'Spain': '🇪🇸',
+            'Canada': '🇨🇦',
+            'Austria': '🇦🇹',
+            'United Kingdom': '🇬🇧',
+            'Hungary': '🇭🇺',
+            'Belgium': '🇧🇪',
+            'Netherlands': '🇳🇱',
+            'Italy': '🇮🇹',
+            'Singapore': '🇸🇬',
+            'Japan': '🇯🇵',
+            'Qatar': '🇶🇦',
+            'USA (Austin)': '🇺🇸',
+            'Mexico': '🇲🇽',
+            'Brazil': '🇧🇷',
+            'USA (Las Vegas)': '🇺🇸',
+            'UAE': '🇦🇪',
+            'China': '🇨🇳',
+            'France': '🇫🇷',
+            'Portugal': '🇵🇹'
+        }
+        country = self.TRACK_DATA[self._normalized_name]['country']
+        return emoji_map.get(country, '🏁')  # Default to racing flag
+    
+    @property
     def track_data(self) -> Dict[str, Any]:
         """Get all track data as dictionary."""
         return self.TRACK_DATA[self._normalized_name].copy()

@@ -171,29 +171,34 @@ class F1LapBot(commands.Bot):
         try:
             from ...domain.value_objects.track_name import TrackName
             
-            # Get a list of important tracks to display
-            key_tracks = ["monaco", "silverstone", "spa", "monza", "cota", "suzuka", "interlagos", "bahrain"]
+            # Get all available tracks that have lap times
+            all_track_keys = list(TrackName.TRACK_DATA.keys())
+            tracks_with_times = []
+            
+            # First, collect all tracks that have lap times
+            for track_key in all_track_keys:
+                try:
+                    track = TrackName(track_key)
+                    best_time = await self.lap_time_repository.find_best_by_track(track)
+                    if best_time:
+                        tracks_with_times.append((track_key, track, best_time))
+                except Exception as e:
+                    print(f"Error processing track {track_key}: {e}")
+                    continue
+            
+            # Sort tracks alphabetically by display name
+            tracks_with_times.sort(key=lambda x: x[1].display_name)
             
             embed = discord.Embed(
                 title="🏁 F1 Lap Time Leaderboard",
-                description="Current track record holders across all circuits",
+                description=f"Current track records across {len(tracks_with_times)} circuits",
                 color=discord.Color.red()
             )
             
             # Build track overview
             track_overview = ""
-            for track_key in key_tracks:
-                try:
-                    track = TrackName(track_key)
-                    best_time = await self.lap_time_repository.find_best_by_track(track)
-                    
-                    if best_time:
-                        track_overview += f"{track.flag_emoji} **{track.short_name}** - {best_time.username} `{best_time.time_format}`\n"
-                    else:
-                        track_overview += f"{track.flag_emoji} **{track.short_name}** - `-`\n"
-                except Exception as e:
-                    print(f"Error processing track {track_key}: {e}")
-                    continue
+            for track_key, track, best_time in tracks_with_times:
+                track_overview += f"{track.flag_emoji} **{track.short_name}** - {best_time.username} `{best_time.time_format}`\n"
             
             if track_overview:
                 embed.add_field(
