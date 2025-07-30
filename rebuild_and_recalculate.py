@@ -29,13 +29,43 @@ from src.domain.value_objects.time_format import TimeFormat
 from src.domain.value_objects.track_name import TrackName
 
 # --- Database Paths ---
-LAP_TIMES_DB = "data/lap_times.db"
-ELO_DB = "data/f1_lap_bot.db"
+# Determine the correct path - databases are in project root
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Try different possible locations for the databases
+POSSIBLE_DB_DIRS = [
+    SCRIPT_DIR,  # Same directory as script
+    os.path.join(SCRIPT_DIR, "data"),  # data subdirectory
+    os.path.dirname(SCRIPT_DIR),  # Parent directory (if script is in src/)
+]
+
+# Find the correct database directory
+DB_DIR = None
+for possible_dir in POSSIBLE_DB_DIRS:
+    test_lap_db = os.path.join(possible_dir, "lap_times.db")
+    if os.path.exists(test_lap_db):
+        DB_DIR = possible_dir
+        break
+
+if DB_DIR is None:
+    print("❌ Could not find lap_times.db in any expected location!")
+    print("Searched in:")
+    for dir_path in POSSIBLE_DB_DIRS:
+        print(f"  - {dir_path}")
+    sys.exit(1)
+
+LAP_TIMES_DB = os.path.join(DB_DIR, "lap_times.db")
+ELO_DB = os.path.join(DB_DIR, "f1_lap_bot.db")
 
 
 async def clear_derived_data():
     """Wipe all calculated data to prepare for a fresh rebuild."""
     print("🔥 Clearing all derived data (ELO, PBs, TRs)...")
+    print(f"  📂 Script directory: {SCRIPT_DIR}")
+    print(f"  📂 Database directory: {DB_DIR}")
+    print(f"  📄 Lap times DB: {LAP_TIMES_DB}")
+    print(f"  📄 ELO DB: {ELO_DB}")
+    
+    # Database existence is already checked during path discovery
     
     # Clear ELO ratings
     try:
