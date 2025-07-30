@@ -343,20 +343,21 @@ class SQLiteLapTimeRepository(LapTimeRepository):
     
     def _row_to_lap_time(self, row) -> LapTime:
         """Convert a database row to a LapTime entity."""
-        # Reconstruct the time format from components
-        time_string = f"{row['time_minutes']}:{row['time_seconds']:02d}.{row['time_milliseconds']:03d}"
-        if row['time_minutes'] == 0:
-            time_string = f"{row['time_seconds']}.{row['time_milliseconds']:03d}"
-        
-        time_format = TimeFormat(time_string)
-        track_name = TrackName(row['track_key'])
-        
-        # Extract sector data from row, defaulting to None if not present
-        sector1_ms = row['sector1_ms']
-        sector2_ms = row['sector2_ms']
-        sector3_ms = row['sector3_ms']
-        
-        lap_time = LapTime(
+        try:
+            # Reconstruct the time format from components
+            time_string = f"{row['time_minutes']}:{row['time_seconds']:02d}.{row['time_milliseconds']:03d}"
+            if row['time_minutes'] == 0:
+                time_string = f"{row['time_seconds']}.{row['time_milliseconds']:03d}"
+            
+            time_format = TimeFormat(time_string)
+            track_name = TrackName(row['track_key'])
+            
+            # Extract sector data from row, defaulting to 0 if NULL or not present
+            sector1_ms = row.get('sector1_ms') or 0
+            sector2_ms = row.get('sector2_ms') or 0  
+            sector3_ms = row.get('sector3_ms') or 0
+            
+            lap_time = LapTime(
             user_id=row['user_id'],
             username=row['username'],
             time_format=time_format,
