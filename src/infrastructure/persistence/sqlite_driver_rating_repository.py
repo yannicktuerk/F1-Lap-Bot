@@ -10,7 +10,7 @@ from ...domain.interfaces.driver_rating_repository import DriverRatingRepository
 class SQLiteDriverRatingRepository(DriverRatingRepository):
     """SQLite implementation of driver rating repository."""
     
-    def __init__(self, db_path: str = "f1_lap_bot.db"):
+    def __init__(self, db_path: str = "data/f1_lap_bot.db"):
         self.db_path = db_path
         self._init_database()
     

@@ -13,7 +13,7 @@ from ...domain.value_objects.track_name import TrackName
 class SQLiteLapTimeRepository(LapTimeRepository):
     """SQLite adapter implementing the LapTimeRepository port."""
     
-    def __init__(self, database_path: str = "lap_times.db"):
+    def __init__(self, database_path: str = "data/lap_times.db"):
         self._database_path = database_path
     
     async def _ensure_table_exists(self):

@@ -51,11 +51,15 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# Database files (SQLite)
+# Database files (SQLite) - Store in data/ directory
 *.db
 *.sqlite
 *.sqlite3
 lap_times.db
+
+# Data directory - Contains user data and databases
+data/
+!data/.gitkeep
 
 # Logs
 *.log
