@@ -333,9 +333,9 @@ class SQLiteLapTimeRepository(LapTimeRepository):
         track_name = TrackName(row['track_key'])
         
         # Extract sector data from row, defaulting to None if not present
-        sector1_ms = row.get('sector1_ms') if row.get('sector1_ms') is not None else None
-        sector2_ms = row.get('sector2_ms') if row.get('sector2_ms') is not None else None
-        sector3_ms = row.get('sector3_ms') if row.get('sector3_ms') is not None else None
+        sector1_ms = row['sector1_ms']
+        sector2_ms = row['sector2_ms']
+        sector3_ms = row['sector3_ms']
         
         lap_time = LapTime(
             user_id=row['user_id'],
