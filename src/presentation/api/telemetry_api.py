@@ -25,7 +25,7 @@ class TelemetryAPI:
         self.port = port
         self.lap_time_repository = lap_time_repository
         self.driver_rating_repository = driver_rating_repository
-        self.submit_use_case = SubmitLapTimeUseCase(lap_time_repository)
+        self.submit_use_case = SubmitLapTimeUseCase(lap_time_repository, driver_rating_repository)
         self.update_elo_use_case = UpdateEloRatingsUseCase(driver_rating_repository, lap_time_repository)
         self.discord_bot = discord_bot  # Reference to Discord bot for user lookup
         self.app = web.Application()
@@ -102,6 +102,9 @@ class TelemetryAPI:
             sector1_ms = sector_times.get('sector1_ms')
             sector2_ms = sector_times.get('sector2_ms')
             sector3_ms = sector_times.get('sector3_ms')
+            
+            # Debug logging for sector times
+            print(f"🔍 DEBUG: Received sector times: S1={sector1_ms}ms, S2={sector2_ms}ms, S3={sector3_ms}ms")
             
             # Validate required fields
             if not user_id:
