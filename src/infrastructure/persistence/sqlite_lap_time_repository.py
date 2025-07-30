@@ -341,41 +341,45 @@ class SQLiteLapTimeRepository(LapTimeRepository):
                 'sector3_driver': s3_result[1] if s3_result else None
             }
     
-    def _row_to_lap_time(self, row) -> LapTime:
+    def _row_to_lap_time(self, row: aiosqlite.Row) -> LapTime:
         """Convert a database row to a LapTime entity."""
         try:
             # Reconstruct the time format from components
             time_string = f"{row['time_minutes']}:{row['time_seconds']:02d}.{row['time_milliseconds']:03d}"
             if row['time_minutes'] == 0:
                 time_string = f"{row['time_seconds']}.{row['time_milliseconds']:03d}"
-            
+
             time_format = TimeFormat(time_string)
             track_name = TrackName(row['track_key'])
-            
-            # Extract sector data from row, defaulting to 0 if NULL or not present
-            sector1_ms = row.get('sector1_ms') or 0
-            sector2_ms = row.get('sector2_ms') or 0  
-            sector3_ms = row.get('sector3_ms') or 0
-            
+
+            # Extract sector data, defaulting to None if column is not present
+            sector1_ms = row['sector1_ms'] if 'sector1_ms' in row.keys() else None
+            sector2_ms = row['sector2_ms'] if 'sector2_ms' in row.keys() else None
+            sector3_ms = row['sector3_ms'] if 'sector3_ms' in row.keys() else None
+
             lap_time = LapTime(
-            user_id=row['user_id'],
-            username=row['username'],
-            time_format=time_format,
-            track_name=track_name,
-            lap_id=row['lap_id'],
-            created_at=datetime.fromisoformat(row['created_at']),
-            sector1_ms=sector1_ms,
-            sector2_ms=sector2_ms,
-            sector3_ms=sector3_ms
-        )
-        
-        if row['is_personal_best']:
-            lap_time.mark_as_personal_best()
-        
-        if row['is_overall_best']:
-            lap_time.mark_as_overall_best()
-        
-        return lap_time
+                user_id=row['user_id'],
+                username=row['username'],
+                time_format=time_format,
+                track_name=track_name,
+                lap_id=row['lap_id'],
+                created_at=datetime.fromisoformat(row['created_at']),
+                sector1_ms=sector1_ms,
+                sector2_ms=sector2_ms,
+                sector3_ms=sector3_ms,
+            )
+
+            if row['is_personal_best']:
+                lap_time.mark_as_personal_best()
+
+            if row['is_overall_best']:
+                lap_time.mark_as_overall_best()
+
+            return lap_time
+        except (KeyError, ValueError) as e:
+            lap_id = row['lap_id'] if 'lap_id' in row.keys() else "Unknown"
+            print(f"Error converting row to LapTime for lap_id={lap_id}: {e}")
+            raise ValueError(f"Corrupt data for lap_id={lap_id}") from e
     
     async def delete_lap_time(self, lap_id: str) -> bool:
         """Delete a lap time by ID. Returns True if successful."""
