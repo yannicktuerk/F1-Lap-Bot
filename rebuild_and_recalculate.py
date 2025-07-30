@@ -83,6 +83,31 @@ async def clear_derived_data():
     print("  🚩 Reset all Personal Best and Track Record flags.")
 
 
+async def fix_null_sectors():
+    """Fix NULL sectors in the database by setting them to 0."""
+    print("\n🛠️ Fixing NULL sectors in database...")
+    
+    conn = sqlite3.connect(LAP_TIMES_DB)
+    cursor = conn.cursor()
+    
+    # Count NULL sectors first
+    cursor.execute("SELECT COUNT(*) FROM lap_times WHERE sector1_ms IS NULL OR sector2_ms IS NULL OR sector3_ms IS NULL")
+    null_count = cursor.fetchone()[0]
+    
+    if null_count > 0:
+        print(f"  🔧 Found {null_count} lap times with NULL sectors, fixing...")
+        
+        # Fix NULL sectors by setting them to 0
+        cursor.execute("UPDATE lap_times SET sector1_ms = COALESCE(sector1_ms, 0), sector2_ms = COALESCE(sector2_ms, 0), sector3_ms = COALESCE(sector3_ms, 0)")
+        conn.commit()
+        
+        print(f"  ✅ Fixed {null_count} lap times with NULL sectors.")
+    else:
+        print("  ✅ No NULL sectors found, database is clean.")
+    
+    conn.close()
+
+
 async def rebuild_history():
     """Re-process all lap times chronologically to fix all stats."""
     print("\n🔄 Starting historical recalculation...")
@@ -187,6 +212,7 @@ async def finalize_data():
 
 async def main():
     await clear_derived_data()
+    await fix_null_sectors()  # NEW: Fix NULL sectors before rebuilding
     await rebuild_history()
     await finalize_data()
     print("\n🎉 All stats have been successfully rebuilt from scratch!")

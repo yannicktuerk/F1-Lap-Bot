@@ -13,8 +13,27 @@ from ...domain.value_objects.track_name import TrackName
 class SQLiteLapTimeRepository(LapTimeRepository):
     """SQLite adapter implementing the LapTimeRepository port."""
     
-    def __init__(self, database_path: str = "data/lap_times.db"):
-        self._database_path = database_path
+    def __init__(self, database_path: Optional[str] = None):
+        if database_path is None:
+            # Auto-detect database location - prioritize project root
+            import os
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.join(script_dir, "..", "..", "..")
+            possible_paths = [
+                os.path.join(project_root, "lap_times.db"),  # Project root (server location)
+                os.path.join(project_root, "data", "lap_times.db"),  # data folder (local dev)
+            ]
+            
+            # Use the first path that exists, or default to project root
+            for path in possible_paths:
+                if os.path.exists(path):
+                    self._database_path = path
+                    break
+            else:
+                # Default to project root if none exist yet
+                self._database_path = possible_paths[0]
+        else:
+            self._database_path = database_path
     
     async def _ensure_table_exists(self):
         """Create the lap_times table if it doesn't exist."""
