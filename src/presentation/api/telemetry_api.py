@@ -97,6 +97,12 @@ class TelemetryAPI:
             source = data.get('source', 'telemetry')
             timestamp = data.get('timestamp')
             
+            # Extract sector times if provided
+            sector_times = data.get('sector_times', {})
+            sector1_ms = sector_times.get('sector1_ms')
+            sector2_ms = sector_times.get('sector2_ms')
+            sector3_ms = sector_times.get('sector3_ms')
+            
             # Validate required fields
             if not user_id:
                 return web.json_response(
@@ -125,7 +131,10 @@ class TelemetryAPI:
                     user_id=user_id,
                     username=username,
                     time_string=time_str,
-                    track_string=track_str
+                    track_string=track_str,
+                    sector1_ms=sector1_ms,
+                    sector2_ms=sector2_ms,
+                    sector3_ms=sector3_ms
                 )
 
                 # Update ELO ratings

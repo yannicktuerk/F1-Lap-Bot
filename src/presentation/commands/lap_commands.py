@@ -120,6 +120,26 @@ class LapCommands(commands.Cog):
                 inline=True
             )
             
+            # Add sector times if available (from telemetry)
+            if lap_time.sector1_ms or lap_time.sector2_ms or lap_time.sector3_ms:
+                sector_text = ""
+                if lap_time.sector1_ms and lap_time.sector1_ms > 0:
+                    s1_time = self._format_time_seconds(lap_time.sector1_ms / 1000.0)
+                    sector_text += f"S1: `{s1_time}`\n"
+                if lap_time.sector2_ms and lap_time.sector2_ms > 0:
+                    s2_time = self._format_time_seconds(lap_time.sector2_ms / 1000.0)
+                    sector_text += f"S2: `{s2_time}`\n"
+                if lap_time.sector3_ms and lap_time.sector3_ms > 0:
+                    s3_time = self._format_time_seconds(lap_time.sector3_ms / 1000.0)
+                    sector_text += f"S3: `{s3_time}`"
+                
+                if sector_text:
+                    embed.add_field(
+                        name="🎯 Sectors",
+                        value=sector_text,
+                        inline=False
+                    )
+            
             # Add beautiful track visuals
             embed.set_image(url=lap_time.track_name.image_url)
             embed.set_thumbnail(url=lap_time.track_name.flag_url)

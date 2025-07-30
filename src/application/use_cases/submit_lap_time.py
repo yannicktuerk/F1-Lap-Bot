@@ -32,7 +32,10 @@ class SubmitLapTimeUseCase:
         user_id: str, 
         username: str, 
         time_string: str, 
-        track_string: str
+        track_string: str,
+        sector1_ms: Optional[int] = None,
+        sector2_ms: Optional[int] = None,
+        sector3_ms: Optional[int] = None
     ) -> Tuple[LapTime, bool, bool]:
         """
         Submit a new lap time.
@@ -42,6 +45,9 @@ class SubmitLapTimeUseCase:
             username: Discord username
             time_string: Time in format like "1:23.456"
             track_string: Track name
+            sector1_ms: Sector 1 time in milliseconds (optional)
+            sector2_ms: Sector 2 time in milliseconds (optional)
+            sector3_ms: Sector 3 time in milliseconds (optional)
             
         Returns:
             Tuple of (lap_time, is_personal_best, is_overall_best)
@@ -65,7 +71,10 @@ class SubmitLapTimeUseCase:
             user_id=user_id,
             username=username,
             time_format=time_format,
-            track_name=track_name
+            track_name=track_name,
+            sector1_ms=sector1_ms,
+            sector2_ms=sector2_ms,
+            sector3_ms=sector3_ms
         )
         
         # Check if this is a personal best

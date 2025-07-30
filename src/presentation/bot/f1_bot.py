@@ -146,6 +146,10 @@ class F1LapBot(commands.Bot):
             except:
                 pass  # Ultimate fallback - just log and continue
     
+    def _format_sector_time(self, time_ms: int) -> str:
+        """Format sector time in milliseconds to SS.mmm format."""
+        return f"{time_ms / 1000.0:.3f}s"
+    
     def get_leaderboard_channel(self) -> Optional[discord.TextChannel]:
         """Get the configured leaderboard channel."""
         if not self.leaderboard_channel_id:
@@ -276,6 +280,26 @@ class F1LapBot(commands.Bot):
                 value=f"🌍 **{lap_time.track_name.display_name}**\n({lap_time.track_name.country})",
                 inline=True
             )
+            
+            # Add sector times if available
+            if lap_time.sector1_ms or lap_time.sector2_ms or lap_time.sector3_ms:
+                sector_text = ""
+                if lap_time.sector1_ms and lap_time.sector1_ms > 0:
+                    s1_time = self._format_sector_time(lap_time.sector1_ms)
+                    sector_text += f"S1: `{s1_time}`\n"
+                if lap_time.sector2_ms and lap_time.sector2_ms > 0:
+                    s2_time = self._format_sector_time(lap_time.sector2_ms)
+                    sector_text += f"S2: `{s2_time}`\n"
+                if lap_time.sector3_ms and lap_time.sector3_ms > 0:
+                    s3_time = self._format_sector_time(lap_time.sector3_ms)
+                    sector_text += f"S3: `{s3_time}`"
+                
+                if sector_text:
+                    embed.add_field(
+                        name="🎯 Sectors",
+                        value=sector_text,
+                        inline=False
+                    )
             
             # Add country flag as thumbnail
             embed.set_thumbnail(url=lap_time.track_name.flag_url)
