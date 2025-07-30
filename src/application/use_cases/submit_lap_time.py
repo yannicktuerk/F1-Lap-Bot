@@ -66,6 +66,9 @@ class SubmitLapTimeUseCase:
         except ValueError as e:
             raise ValueError(f"Invalid track name: {e}")
         
+        # Debug logging for sector times
+        print(f"🔍 USE CASE: Creating LapTime with sectors: S1={sector1_ms}, S2={sector2_ms}, S3={sector3_ms}")
+        
         # Create the lap time entity
         lap_time = LapTime(
             user_id=user_id,
@@ -76,6 +79,9 @@ class SubmitLapTimeUseCase:
             sector2_ms=sector2_ms,
             sector3_ms=sector3_ms
         )
+        
+        # Debug: Verify the lap time entity has the sectors
+        print(f"🔍 USE CASE: LapTime created with: S1={lap_time.sector1_ms}, S2={lap_time.sector2_ms}, S3={lap_time.sector3_ms}")
         
         # Check if this is a personal best
         user_best = await self._repository.find_user_best_by_track(user_id, track_name)

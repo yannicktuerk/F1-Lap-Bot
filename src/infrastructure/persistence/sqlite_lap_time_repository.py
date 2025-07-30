@@ -85,6 +85,9 @@ class SQLiteLapTimeRepository(LapTimeRepository):
         """Save a lap time and return the generated ID."""
         await self._ensure_table_exists()
         
+        # Debug: Check sectors before saving
+        print(f"🔍 REPOSITORY: About to save lap with sectors: S1={lap_time.sector1_ms}, S2={lap_time.sector2_ms}, S3={lap_time.sector3_ms}")
+        
         lap_id = str(uuid.uuid4())
         
         async with aiosqlite.connect(self._database_path) as db:

@@ -90,6 +90,10 @@ class TelemetryAPI:
             # Parse JSON request
             data = await request.json()
             
+            # Full debug logging of received data
+            print(f"\n📡 TELEMETRY API: Received request")
+            print(f"🔍 Full request data: {json.dumps(data, indent=2)}")
+            
             # Extract required fields
             user_id = data.get('user_id')
             time_str = data.get('time')
@@ -104,7 +108,8 @@ class TelemetryAPI:
             sector3_ms = sector_times.get('sector3_ms')
             
             # Debug logging for sector times
-            print(f"🔍 DEBUG: Received sector times: S1={sector1_ms}ms, S2={sector2_ms}ms, S3={sector3_ms}ms")
+            print(f"🔍 EXTRACTED: User={user_id}, Time={time_str}, Track={track_str}")
+            print(f"🔍 SECTORS: S1={sector1_ms}ms, S2={sector2_ms}ms, S3={sector3_ms}ms")
             
             # Validate required fields
             if not user_id:
