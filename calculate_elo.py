@@ -66,8 +66,48 @@ def load_lap_times() -> List[Tuple]:
     
     return lap_times
 
+def get_latest_username_for_user(user_id: str) -> str:
+    """Get the most recent username for a user_id."""
+    conn = sqlite3.connect('data/lap_times.db')
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT username FROM lap_times 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT 1
+    """, (user_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result[0] if result else "Unknown"
+
+def ensure_elo_table_exists():
+    """Ensure the driver_ratings table exists."""
+    conn = sqlite3.connect('data/f1_lap_bot.db')
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS driver_ratings (
+            user_id TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            current_elo INTEGER NOT NULL DEFAULT 1500,
+            peak_elo INTEGER NOT NULL DEFAULT 1500,
+            matches_played INTEGER NOT NULL DEFAULT 0,
+            wins INTEGER NOT NULL DEFAULT 0,
+            losses INTEGER NOT NULL DEFAULT 0,
+            last_updated TEXT NOT NULL
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+
 def save_driver_rating(rating: DriverRating):
     """Save a driver rating to the database."""
+    ensure_elo_table_exists()
+    
     conn = sqlite3.connect('data/f1_lap_bot.db')
     cursor = conn.cursor()
     
@@ -142,6 +182,13 @@ def calculate_elo_ratings():
         processed += 1
         if processed % 10 == 0:
             print(f"⚡ Processed {processed}/{len(lap_times)} lap times...")
+    
+    # Update usernames to latest before saving
+    print("🔄 Updating usernames to latest versions...")
+    for user_id, driver in drivers.items():
+        latest_username = get_latest_username_for_user(user_id)
+        driver.username = latest_username
+        print(f"👤 Updated {user_id} to username: {latest_username}")
     
     # Save all driver ratings
     print("💾 Saving ELO ratings to database...")
