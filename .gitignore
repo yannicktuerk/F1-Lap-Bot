@@ -52,14 +52,13 @@ Thumbs.db
 desktop.ini
 
 # Database files (SQLite) - Store in data/ directory
-*.db
+# *.db - Commented out to allow committing databases for server deployment
 *.sqlite
 *.sqlite3
-lap_times.db
+# lap_times.db - Allow committing for server
 
-# Data directory - Contains user data and databases
-data/
-!data/.gitkeep
+# Data directory - Allow committing for server deployment
+# data/ - Commented out to allow database commits
 
 # Logs
 *.log
