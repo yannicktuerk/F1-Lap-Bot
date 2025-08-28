@@ -343,13 +343,16 @@ class MessageBuilder:
     def _validate_no_numbers(self, message: str) -> bool:
         """Validate that message contains no numbers, meters, or times."""
         forbidden_patterns = [
-            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-            "meter", "m ", " m", "km/h", "mph", "second", "ms", "lap time",
-            "Meter", "Zeit", "Sekunde", "Runde", "km/h"
+            " meter", "meter ", " m ", " km/h", " mph", " second", " ms ", " lap time",
+            " 0", " 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 9",
+            "0 ", "1 ", "2 ", "3 ", "4 ", "5 ", "6 ", "7 ", "8 ", "9 ",
+            " Meter", " Sekunde", " Runde", " Zeit "  # Be more specific about German words
         ]
         
+        message_with_spaces = " " + message.lower() + " "
+        
         for pattern in forbidden_patterns:
-            if pattern in message:
+            if pattern in message_with_spaces:
                 return False
         
         return True

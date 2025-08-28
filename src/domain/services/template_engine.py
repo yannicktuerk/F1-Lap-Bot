@@ -81,15 +81,18 @@ class MessageTemplate:
             self.context_phrase or ""
         ])
         
-        # Check for forbidden content
+        # Check for forbidden content (more precise patterns)
         forbidden_patterns = [
-            "meter", "m ", " m", "km/h", "mph", "second", "ms", "lap time",
-            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-            "Meter", "Zeit", "Sekunde", "Runde"
+            " meter", "meter ", " m ", " km/h", " mph", " second", " ms ", " lap time",
+            " 0", " 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 9",
+            "0 ", "1 ", "2 ", "3 ", "4 ", "5 ", "6 ", "7 ", "8 ", "9 ",
+            " Meter", " Sekunde", " Runde", " Zeit "  # Be more specific about German words
         ]
         
+        all_text_with_spaces = " " + all_text.lower() + " "
+        
         for pattern in forbidden_patterns:
-            if pattern in all_text:
+            if pattern in all_text_with_spaces:
                 return False
         
         return True
@@ -103,7 +106,7 @@ GERMAN_TEMPLATES = {
         language=Language.GERMAN,
         intensity=IntensityLevel.LIGHT,
         cause_phrase="Der Bremspunkt könnte optimiert werden",
-        action_phrase="etwas früher bremsen",
+        action_phrase="etwas früher an die Bremse",
         focus_phrase="dann entspannt in die Kurve rollen"
     ),
     
@@ -112,16 +115,16 @@ GERMAN_TEMPLATES = {
         language=Language.GERMAN,
         intensity=IntensityLevel.MEDIUM,
         cause_phrase="Die Bremsphase ist zu spät",
-        action_phrase="früher bremsen",
-        focus_phrase="mehr Zeit für die Kurveneinfahrt gewinnen"
+        action_phrase="früher an die Bremse",
+        focus_phrase="bessere Kurveneinfahrt gewinnen"
     ),
     
     (MessageType.BRAKE_EARLIER, IntensityLevel.AGGRESSIVE): MessageTemplate(
         message_type=MessageType.BRAKE_EARLIER,
         language=Language.GERMAN,
         intensity=IntensityLevel.AGGRESSIVE,
-        cause_phrase="Zu späte Bremsung kostet Zeit",
-        action_phrase="deutlich früher bremsen",
+        cause_phrase="Zu späte Bremsung kostet Performance",
+        action_phrase="deutlich früher an die Bremse",
         focus_phrase="aggressive aber kontrollierte Einfahrt"
     ),
     
@@ -316,10 +319,19 @@ class TemplateEngine:
         self.templates = self._load_templates()
     
     def _load_templates(self) -> Dict:
-        """Load all templates for all languages."""
+        """Load all templates for all languages with language-specific keys."""
         templates = {}
-        templates.update(GERMAN_TEMPLATES)
-        templates.update(ENGLISH_TEMPLATES)
+        
+        # Add German templates with language prefix
+        for key, template in GERMAN_TEMPLATES.items():
+            lang_key = (key[0], key[1], Language.GERMAN)
+            templates[lang_key] = template
+            
+        # Add English templates with language prefix  
+        for key, template in ENGLISH_TEMPLATES.items():
+            lang_key = (key[0], key[1], Language.ENGLISH)
+            templates[lang_key] = template
+            
         return templates
     
     def get_template(self, 
@@ -338,19 +350,14 @@ class TemplateEngine:
             Template or None if not found
         """
         lang = language or self.primary_language
-        key = (message_type, intensity)
+        key = (message_type, intensity, lang)
         
-        # Try primary language first
-        template_key = (*key, lang) if len(key) == 2 else key
-        if template_key in self.templates:
-            return self.templates[template_key]
-        
-        # Try with just message type and intensity (for dict lookup)
+        # Look for template with language-specific key
         if key in self.templates:
             return self.templates[key]
         
         # Fallback to medium intensity if specific not found
-        fallback_key = (message_type, IntensityLevel.MEDIUM)
+        fallback_key = (message_type, IntensityLevel.MEDIUM, lang)
         if fallback_key in self.templates:
             return self.templates[fallback_key]
         
