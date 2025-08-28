@@ -8,7 +8,7 @@ import struct
 
 from f1.listener import PacketListener
 from f1.packets import (
-    Packet,
+    resolve,
     PacketHeader,
     PacketSessionData,
     PacketLapData,
@@ -84,18 +84,12 @@ class UdpTelemetryAdapter:
             self.logger.info(f"Starting UDP telemetry listener on {self.host}:{self.port}")
             
             # Create and configure UDP listener
-            self._listener = PacketListener(port=self.port, host=self.host)
+            self._listener = PacketListener(host=self.host, port=self.port)
             
-            # Register packet handlers
-            self._listener.add_handler(self.PACKET_ID_SESSION, self._handle_session_packet)
-            self._listener.add_handler(self.PACKET_ID_LAP_DATA, self._handle_lap_data_packet)
-            self._listener.add_handler(self.PACKET_ID_CAR_TELEMETRY, self._handle_car_telemetry_packet)
-            self._listener.add_handler(self.PACKET_ID_TIME_TRIAL, self._handle_time_trial_packet)
-            self._listener.add_handler(self.PACKET_ID_PARTICIPANTS, self._handle_participants_packet)
-            
-            # Start listening
             self._running = True
-            await asyncio.create_task(self._run_listener())
+            
+            # Start listening in background task
+            asyncio.create_task(self._run_listener())
             
         except Exception as e:
             self.logger.error(f"Failed to start UDP telemetry adapter: {e}")
@@ -120,29 +114,62 @@ class UdpTelemetryAdapter:
     async def _run_listener(self) -> None:
         """Run the UDP listener in async mode."""
         try:
-            # Note: f1.listener.PacketListener is synchronous, so we need to run it in a thread
+            self.logger.info("UDP listener started, waiting for packets...")
+            
+            # Run in executor to avoid blocking
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self._listener.start)
+            
+            while self._running:
+                try:
+                    # Get packet from listener (this blocks, so run in executor)
+                    packet = await loop.run_in_executor(None, self._listener.get)
+                    
+                    if packet:
+                        await self._handle_packet(packet)
+                        
+                except Exception as e:
+                    if self._running:  # Only log if we're still supposed to be running
+                        self.logger.error(f"Error processing packet: {e}")
+                    
         except Exception as e:
             self.logger.error(f"UDP listener error: {e}")
             self._running = False
+    
+    async def _handle_packet(self, packet) -> None:
+        """Handle incoming packet based on its type."""
+        try:
+            packet_id = packet.header.packet_id
+            
+            if packet_id == self.PACKET_ID_SESSION:
+                self._handle_session_packet(packet)
+            elif packet_id == self.PACKET_ID_LAP_DATA:
+                self._handle_lap_data_packet(packet)
+            elif packet_id == self.PACKET_ID_CAR_TELEMETRY:
+                self._handle_car_telemetry_packet(packet)
+            elif packet_id == self.PACKET_ID_TIME_TRIAL:
+                self._handle_time_trial_packet(packet)
+            elif packet_id == self.PACKET_ID_PARTICIPANTS:
+                self._handle_participants_packet(packet)
+                
+        except Exception as e:
+            self.logger.error(f"Error handling packet type {packet_id if 'packet_id' in locals() else 'unknown'}: {e}")
     
     def _handle_session_packet(self, packet: PacketSessionData) -> None:
         """Handle session data packet (ID 1)."""
         try:
             header = packet.header
-            self._player_car_index = header.m_playerCarIndex
+            self._player_car_index = header.player_car_index
             
             # Map session information
             session_info = SessionInfo(
-                session_uid=header.m_sessionUID,
-                session_type=packet.m_sessionType,
-                track_id=packet.m_trackId,
-                session_time=header.m_sessionTime,
-                remaining_time=packet.m_sessionTimeLeft,
-                is_time_trial=(packet.m_sessionType == self.gating_service.SESSION_TYPE_TIME_TRIAL),
-                frame_identifier=header.m_frameIdentifier,
-                overall_frame_identifier=header.m_overallFrameIdentifier
+                session_uid=header.session_uid,
+                session_type=packet.session_type,
+                track_id=packet.track_id,
+                session_time=header.session_time,
+                remaining_time=packet.session_time_left,
+                is_time_trial=(packet.session_type == self.gating_service.SESSION_TYPE_TIME_TRIAL),
+                frame_identifier=header.frame_identifier,
+                overall_frame_identifier=header.overall_frame_identifier
             )
             
             # Apply gating rules
@@ -165,19 +192,32 @@ class UdpTelemetryAdapter:
                 return
             
             # Get player car lap data
-            lap_data = packet.m_lapData[self._player_car_index]
+            lap_data = packet.lap_data[self._player_car_index]
+            
+            # Convert sector times (they are split into ms_part and minutes_part)
+            sector1_ms = None
+            if lap_data.sector1_time_ms_part > 0:
+                sector1_ms = lap_data.sector1_time_ms_part + (lap_data.sector1_time_minutes_part * 60000)
+            
+            sector2_ms = None
+            if lap_data.sector2_time_ms_part > 0:
+                sector2_ms = lap_data.sector2_time_ms_part + (lap_data.sector2_time_minutes_part * 60000)
             
             lap_info = LapInfo(
-                lap_time_ms=lap_data.m_lastLapTimeInMS if lap_data.m_lastLapTimeInMS > 0 else None,
-                sector1_time_ms=lap_data.m_sector1TimeInMS if lap_data.m_sector1TimeInMS > 0 else None,
-                sector2_time_ms=lap_data.m_sector2TimeInMS if lap_data.m_sector2TimeInMS > 0 else None,
-                sector3_time_ms=lap_data.m_sector3TimeInMS if lap_data.m_sector3TimeInMS > 0 else None,
-                lap_distance=lap_data.m_lapDistance,
-                total_distance=lap_data.m_totalDistance,
-                is_valid_lap=(lap_data.m_resultStatus == 2),  # 2 = Active/Valid
-                current_lap_number=lap_data.m_currentLapNum,
-                car_position=lap_data.m_carPosition
+                lap_time_ms=lap_data.last_lap_time_in_ms if lap_data.last_lap_time_in_ms > 0 else None,
+                sector1_time_ms=sector1_ms,
+                sector2_time_ms=sector2_ms,
+                sector3_time_ms=None,  # Sector 3 is calculated as lap_time - sector1 - sector2
+                lap_distance=lap_data.lap_distance,
+                total_distance=lap_data.total_distance,
+                is_valid_lap=(lap_data.result_status == 2 and lap_data.current_lap_invalid == 0),  # 2 = Active/Valid, 0 = valid lap
+                current_lap_number=lap_data.current_lap_num,
+                car_position=lap_data.car_position
             )
+            
+            # Calculate sector 3 time if we have lap time and other sectors
+            if (lap_info.lap_time_ms and lap_info.sector1_time_ms and lap_info.sector2_time_ms):
+                lap_info.sector3_time_ms = lap_info.lap_time_ms - lap_info.sector1_time_ms - lap_info.sector2_time_ms
             
             # Apply gating rules
             if not self.gating_service.should_process_lap(lap_info, self._player_car_index):
@@ -202,37 +242,37 @@ class UdpTelemetryAdapter:
                 return
             
             # Get player car telemetry
-            telemetry = packet.m_carTelemetryData[self._player_car_index]
+            telemetry = packet.car_telemetry_data[self._player_car_index]
             
             car_telemetry = CarTelemetryInfo(
-                speed=telemetry.m_speed,
-                throttle=telemetry.m_throttle,
-                steer=telemetry.m_steer,
-                brake=telemetry.m_brake,
-                clutch=telemetry.m_clutch,
-                gear=telemetry.m_gear,
-                engine_rpm=telemetry.m_engineRPM,
-                drs=(telemetry.m_drs == 1),
-                rev_lights_percent=telemetry.m_revLightsPercent,
+                speed=telemetry.speed,
+                throttle=telemetry.throttle,
+                steer=telemetry.steer,
+                brake=telemetry.brake,
+                clutch=telemetry.clutch,
+                gear=telemetry.gear,
+                engine_rpm=telemetry.engine_rpm,
+                drs=(telemetry.drs == 1),
+                rev_lights_percent=telemetry.rev_lights_percent,
                 brake_temperature=[
-                    telemetry.m_brakesTemperature[0],  # RL
-                    telemetry.m_brakesTemperature[1],  # RR
-                    telemetry.m_brakesTemperature[2],  # FL
-                    telemetry.m_brakesTemperature[3]   # FR
+                    telemetry.brakes_temperature[0],  # RL
+                    telemetry.brakes_temperature[1],  # RR
+                    telemetry.brakes_temperature[2],  # FL
+                    telemetry.brakes_temperature[3]   # FR
                 ],
                 tyre_surface_temperature=[
-                    telemetry.m_tyresSurfaceTemperature[0],  # RL
-                    telemetry.m_tyresSurfaceTemperature[1],  # RR
-                    telemetry.m_tyresSurfaceTemperature[2],  # FL
-                    telemetry.m_tyresSurfaceTemperature[3]   # FR
+                    telemetry.tyres_surface_temperature[0],  # RL
+                    telemetry.tyres_surface_temperature[1],  # RR
+                    telemetry.tyres_surface_temperature[2],  # FL
+                    telemetry.tyres_surface_temperature[3]   # FR
                 ],
                 tyre_inner_temperature=[
-                    telemetry.m_tyresInnerTemperature[0],  # RL
-                    telemetry.m_tyresInnerTemperature[1],  # RR
-                    telemetry.m_tyresInnerTemperature[2],  # FL
-                    telemetry.m_tyresInnerTemperature[3]   # FR
+                    telemetry.tyres_inner_temperature[0],  # RL
+                    telemetry.tyres_inner_temperature[1],  # RR
+                    telemetry.tyres_inner_temperature[2],  # FL
+                    telemetry.tyres_inner_temperature[3]   # FR
                 ],
-                engine_temperature=telemetry.m_engineTemperature
+                engine_temperature=telemetry.engine_temperature
             )
             
             self._current_telemetry_data[self._player_car_index] = car_telemetry
@@ -249,15 +289,19 @@ class UdpTelemetryAdapter:
     def _handle_time_trial_packet(self, packet: PacketTimeTrialData) -> None:
         """Handle time trial packet (ID 14)."""
         try:
+            # Time trial data has current session best, personal best, and rival data
+            player_best = packet.player_session_best_data_set
+            personal_best = packet.personal_best_data_set
+            
             time_trial_info = TimeTrialInfo(
-                is_personal_best=(packet.m_personalBestLapTimeInMS > 0),
-                is_best_overall=(packet.m_bestLapTimeInMS > 0),
-                sector1_personal_best_ms=packet.m_personalBestSector1TimeInMS if packet.m_personalBestSector1TimeInMS > 0 else None,
-                sector2_personal_best_ms=packet.m_personalBestSector2TimeInMS if packet.m_personalBestSector2TimeInMS > 0 else None,
-                sector3_personal_best_ms=packet.m_personalBestSector3TimeInMS if packet.m_personalBestSector3TimeInMS > 0 else None,
-                sector1_best_overall_ms=packet.m_bestSector1TimeInMS if packet.m_bestSector1TimeInMS > 0 else None,
-                sector2_best_overall_ms=packet.m_bestSector2TimeInMS if packet.m_bestSector2TimeInMS > 0 else None,
-                sector3_best_overall_ms=packet.m_bestSector3TimeInMS if packet.m_bestSector3TimeInMS > 0 else None
+                is_personal_best=(personal_best.lap_time_in_ms > 0 and personal_best.valid == 1),
+                is_best_overall=False,  # Would need to compare with other data
+                sector1_personal_best_ms=personal_best.sector1_time_in_ms if personal_best.sector1_time_in_ms > 0 else None,
+                sector2_personal_best_ms=personal_best.sector2_time_in_ms if personal_best.sector2_time_in_ms > 0 else None,
+                sector3_personal_best_ms=personal_best.sector3_time_in_ms if personal_best.sector3_time_in_ms > 0 else None,
+                sector1_best_overall_ms=player_best.sector1_time_in_ms if player_best.sector1_time_in_ms > 0 else None,
+                sector2_best_overall_ms=player_best.sector2_time_in_ms if player_best.sector2_time_in_ms > 0 else None,
+                sector3_best_overall_ms=player_best.sector3_time_in_ms if player_best.sector3_time_in_ms > 0 else None
             )
             
             self._current_time_trial = time_trial_info
@@ -286,7 +330,7 @@ class UdpTelemetryAdapter:
             self._player_car_index in self._current_telemetry_data
         ):
             # Handle jitter with frame window tolerance
-            frame_diff = header.m_frameIdentifier - self._last_processed_frame
+            frame_diff = header.frame_identifier - self._last_processed_frame
             if frame_diff < self._frame_window_size and frame_diff >= 0:
                 return  # Skip if within soft window
             
@@ -301,7 +345,7 @@ class UdpTelemetryAdapter:
             
             # Apply final gating check
             if self.gating_service.should_process_telemetry_sample(sample):
-                self._last_processed_frame = header.m_frameIdentifier
+                self._last_processed_frame = header.frame_identifier
                 await self._notify_handlers_telemetry_sample(sample)
     
     async def _notify_handlers_session(self, session_info: SessionInfo) -> None:
