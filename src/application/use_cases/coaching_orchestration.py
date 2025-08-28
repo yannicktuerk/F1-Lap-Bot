@@ -5,7 +5,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
-from src.domain.entities.telemetry_sample import TelemetrySample
+from src.domain.entities.telemetry_sample import PlayerTelemetrySample
 from src.domain.entities.coaching_action import CoachingAction
 from src.domain.services.turn_split_service import (
     TurnCatalog, PerTurnSplitCalculator, RewardService, Track, TurnSplit
@@ -47,7 +47,7 @@ class LapCompletionEvent:
     session_uid: str
     lap_number: int
     track: Track
-    samples: List[TelemetrySample]
+    samples: List[PlayerTelemetrySample]
     timestamp: float
 
 
@@ -337,12 +337,12 @@ class CoachingUseCase:
         """Get safety violations from the lap."""
         violations = []
         
-        # Check for high slip conditions
+        # Check for high slip conditions using motion ex data
         for sample in event.samples:
-            if hasattr(sample, 'motion_data') and sample.motion_data:
-                # Check for excessive slip
-                if hasattr(sample.motion_data, 'wheel_slip') and sample.motion_data.wheel_slip:
-                    max_slip = max(sample.motion_data.wheel_slip)
+            if hasattr(sample, 'motion_ex_info') and sample.motion_ex_info:
+                # Check for excessive slip if slip data is available
+                if hasattr(sample.motion_ex_info, 'wheel_slip') and sample.motion_ex_info.wheel_slip:
+                    max_slip = max(sample.motion_ex_info.wheel_slip)
                     if max_slip > 0.9:
                         violations.append(f"High slip detected: {max_slip:.2f}")
         

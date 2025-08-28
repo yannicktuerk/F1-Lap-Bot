@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 import logging
 
-from src.domain.entities.telemetry_sample import TelemetrySample
-from src.domain.value_objects.position import Position
+from src.domain.entities.telemetry_sample import PlayerTelemetrySample
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +112,7 @@ class TurnCatalog:
                 return turn
         return None
     
-    def detect_turns_from_telemetry(self, track: Track, samples: List[TelemetrySample], 
+    def detect_turns_from_telemetry(self, track: Track, samples: List[PlayerTelemetrySample], 
                                    turn_threshold: float = 50.0) -> List[TurnDefinition]:
         """Detect turns dynamically from telemetry if not predefined."""
         if track in self._turns:
@@ -129,13 +128,13 @@ class TurnCatalog:
             next_sample = samples[i+1] if i+1 < len(samples) else samples[i]
             
             # Detect significant steering input + speed reduction
-            steering_delta = abs(current.motion_data.steer - prev.motion_data.steer)
-            speed_reduction = prev.motion_data.speed - current.motion_data.speed
+            steering_delta = abs(current.car_telemetry.steer - prev.car_telemetry.steer)
+            speed_reduction = prev.car_telemetry.speed - current.car_telemetry.speed
             
             if steering_delta > 0.2 and speed_reduction > 10:  # Significant turn
                 # Find entry and exit points
-                entry_distance = max(0, current.lap_data.lap_distance - turn_threshold)
-                exit_distance = current.lap_data.lap_distance + turn_threshold
+                entry_distance = max(0, current.lap_info.lap_distance - turn_threshold)
+                exit_distance = current.lap_info.lap_distance + turn_threshold
                 
                 turn = TurnDefinition(
                     turn_id=turn_id,
@@ -143,7 +142,7 @@ class TurnCatalog:
                     entry_distance=entry_distance,
                     exit_distance=exit_distance,
                     name=f"Turn {turn_id}",
-                    sector=current.lap_data.sector
+                    sector=1  # Default sector, could be derived from lap_distance
                 )
                 detected_turns.append(turn)
                 turn_id += 1
@@ -160,7 +159,7 @@ class PerTurnSplitCalculator:
         self.turn_catalog = turn_catalog
         self._reference_times: Dict[Tuple[Track, int], float] = {}  # (track, turn_id) -> median time
     
-    def calculate_turn_splits(self, samples: List[TelemetrySample], 
+    def calculate_turn_splits(self, samples: List[PlayerTelemetrySample], 
                             track: Track) -> List[TurnSplit]:
         """Calculate split times for all turns in a lap."""
         if not samples:
@@ -172,7 +171,7 @@ class PerTurnSplitCalculator:
             turns = self.turn_catalog.detect_turns_from_telemetry(track, samples)
         
         splits = []
-        lap_number = samples[0].lap_data.current_lap_num if samples else 0
+        lap_number = samples[0].lap_info.current_lap_number if samples else 0
         
         for turn in turns:
             split = self._calculate_turn_split(samples, turn, lap_number)
@@ -181,7 +180,7 @@ class PerTurnSplitCalculator:
         
         return splits
     
-    def _calculate_turn_split(self, samples: List[TelemetrySample], 
+    def _calculate_turn_split(self, samples: List[PlayerTelemetrySample], 
                             turn: TurnDefinition, lap_number: int) -> Optional[TurnSplit]:
         """Calculate split time for a specific turn."""
         entry_sample = None
@@ -189,7 +188,7 @@ class PerTurnSplitCalculator:
         
         # Find entry and exit samples
         for sample in samples:
-            distance = sample.lap_data.lap_distance
+            distance = sample.lap_info.lap_distance
             
             if turn.entry_distance <= distance <= turn.entry_distance + 20 and not entry_sample:
                 entry_sample = sample
@@ -200,8 +199,9 @@ class PerTurnSplitCalculator:
         if not entry_sample or not exit_sample:
             return None
         
-        # Calculate turn time
-        turn_time = exit_sample.lap_data.current_lap_time - entry_sample.lap_data.current_lap_time
+        # Calculate turn time using lap time data
+        # Since we don't have direct access to current_lap_time, use session_time
+        turn_time = exit_sample.session_info.session_time - entry_sample.session_info.session_time
         if turn_time <= 0:
             return None
         
@@ -217,7 +217,7 @@ class PerTurnSplitCalculator:
             reference_time=reference_time,
             delta=delta,
             lap_number=lap_number,
-            timestamp=entry_sample.session_time
+            timestamp=entry_sample.session_info.session_time
         )
     
     def update_reference_times(self, splits: List[TurnSplit], track: Track) -> None:
