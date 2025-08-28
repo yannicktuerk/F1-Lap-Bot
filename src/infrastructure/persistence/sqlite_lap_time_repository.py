@@ -90,32 +90,52 @@ class SQLiteLapTimeRepository(LapTimeRepository):
         
         lap_id = str(uuid.uuid4())
         
-        async with aiosqlite.connect(self._database_path) as db:
-            await db.execute("""
-                INSERT INTO lap_times (
-                    lap_id, user_id, username, track_key,
-                    time_minutes, time_seconds, time_milliseconds, total_milliseconds,
-                    is_personal_best, is_overall_best, is_bot,
-                    sector1_ms, sector2_ms, sector3_ms, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                lap_id,
-                lap_time.user_id,
-                lap_time.username,
-                lap_time.track_name.key,
-                lap_time.time_format.minutes,
-                lap_time.time_format.seconds,
-                lap_time.time_format.milliseconds,
-                lap_time.time_format.total_milliseconds,
-                lap_time.is_personal_best,
-                lap_time.is_overall_best,
-                False,  # is_bot - always False since we prevent bots from submitting
-                lap_time.sector1_ms,
-                lap_time.sector2_ms,
-                lap_time.sector3_ms,
-                lap_time.created_at.isoformat()
-            ))
-            await db.commit()
+        try:
+            async with aiosqlite.connect(self._database_path) as db:
+                print(f"🔍 REPOSITORY: Using database path: {self._database_path}")
+                
+                cursor = await db.execute("""
+                    INSERT INTO lap_times (
+                        lap_id, user_id, username, track_key,
+                        time_minutes, time_seconds, time_milliseconds, total_milliseconds,
+                        is_personal_best, is_overall_best, is_bot,
+                        sector1_ms, sector2_ms, sector3_ms, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    lap_id,
+                    lap_time.user_id,
+                    lap_time.username,
+                    lap_time.track_name.key,
+                    lap_time.time_format.minutes,
+                    lap_time.time_format.seconds,
+                    lap_time.time_format.milliseconds,
+                    lap_time.time_format.total_milliseconds,
+                    lap_time.is_personal_best,
+                    lap_time.is_overall_best,
+                    False,  # is_bot - always False since we prevent bots from submitting
+                    lap_time.sector1_ms,
+                    lap_time.sector2_ms,
+                    lap_time.sector3_ms,
+                    lap_time.created_at.isoformat()
+                ))
+                
+                print(f"🔍 REPOSITORY: Insert executed, rowcount: {cursor.rowcount}")
+                await db.commit()
+                print(f"🔍 REPOSITORY: Transaction committed successfully!")
+                
+                # Verify the data was actually saved
+                verify_cursor = await db.execute("SELECT COUNT(*) FROM lap_times WHERE lap_id = ?", (lap_id,))
+                count = (await verify_cursor.fetchone())[0]
+                print(f"🔍 REPOSITORY: Verification - found {count} records with lap_id={lap_id}")
+                
+                if count == 0:
+                    print(f"❌ REPOSITORY: Critical error - data not found after commit!")
+                else:
+                    print(f"✅ REPOSITORY: Data successfully persisted!")
+                
+        except Exception as save_error:
+            print(f"❌ REPOSITORY: Save error: {save_error}")
+            raise
         
         return lap_id
     
