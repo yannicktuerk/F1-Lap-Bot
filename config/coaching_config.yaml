@@ -1,0 +1,84 @@
+# F1 Coaching System Configuration
+# Complete configuration for all tunable parameters (Issue 14)
+
+# Phase priority for coaching candidate resolution
+phases_priority: [entry, rotation, exit]
+
+# Intensity words for coaching messages (German)
+intensity_words:
+  entry_earlier:    ["etwas früher bremsen", "früher bremsen", "deutlich früher bremsen"]
+  press_faster:     ["Druck zügig aufbauen", "Druck schneller aufbauen", "Druck sehr schnell aufbauen"]
+  release_earlier:  ["früher lösen", "klar früher lösen"]
+  early_throttle:   ["etwas früher ans Gas, sanft öffnen", "früher ans Gas, progressiv öffnen"]
+  reduce_steer:     ["Lenkwinkel etwas reduzieren, dann Gas", "Lenkwinkel reduzieren, dann Gas"]
+
+# Slip ampel thresholds for safety gates
+slip_amps:
+  exit: 
+    green: [0.0, 0.6]
+    yellow: [0.6, 0.85]
+    red: [0.85, 1.0]
+  entry:
+    green: [0.0, 0.6]
+    yellow: [0.6, 0.85] 
+    red: [0.85, 1.0]
+  rotation:
+    green: [0.0, 0.65]
+    yellow: [0.65, 0.9]
+    red: [0.9, 1.0]
+
+# Bandit optimization settings
+bandit:
+  policy: thompson
+  cooldown_laps: 1
+  reward_metric: per_turn_split
+  exploration_rate: 0.1
+  confidence_threshold: 0.7
+
+# Reviewer service settings
+reviewer:
+  window_valid_laps: 3
+  outcomes: [attempt, success, overshoot, no_attempt]
+  pattern_detection_window: 2.0  # seconds
+  success_threshold: 0.05  # 50ms improvement
+
+# Performance requirements
+performance:
+  max_report_generation_ms: 150
+  cache_warmup_enabled: true
+  incremental_computation: true
+  packet_drop_tolerance: 0.05
+
+# Observability settings
+observability:
+  structured_logging: true
+  log_level: INFO
+  metrics_collection: true
+  dashboard_enabled: true
+  kpi_update_interval: 30  # seconds
+
+# Database settings
+database:
+  batch_size: 100
+  connection_pool_size: 5
+  vacuum_interval_hours: 24
+
+# Telemetry settings
+telemetry:
+  udp_port: 20777
+  udp_host: "127.0.0.1"
+  packet_timeout_ms: 100
+  max_buffer_size: 1000
+
+# Turn catalog settings (Issue 11)
+turn_catalog:
+  detection_method: "distance_based"
+  turn_threshold_m: 50.0
+  reference_update_interval: 10  # laps
+
+# Language settings
+language:
+  primary: german
+  fallback: english
+  validation_enabled: true
+  numerical_content_blocked: true
