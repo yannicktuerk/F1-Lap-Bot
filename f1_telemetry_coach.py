@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-F1 Telemetry Coaching Service - Standalone Entry Point
+F1 Telemetry Coaching Service - Complete Pipeline Entry Point
 
-This service implements the UDP telemetry listener and coaching pipeline for F1® 25.
+This service implements the complete UDP telemetry listener and coaching pipeline for F1® 25.
 Issues implemented: 
-- 01 (UDP Listener), 02 (Functional Gating), 03 (Markers & Phases)
-- 04 (Grip/Slip Indicators & Safety Ampels)
+- 01-04 (UDP Listener, Functional Gating, Markers & Phases, Grip/Slip Indicators & Safety Ampels)
+- 05-06 (Turn Ranking, Candidates Safety Conflict)
+- 07-10 (ML Utility Estimator, Bandit Optimization, Reviewer, Language Templates)
 """
 import sys
 import os
@@ -49,6 +50,12 @@ async def main():
         print("   • Issue 02: Functional Gating (TT-only, Valid-only, Player-only)")
         print("   • Issue 03: Markers & Phases (Entry, Rotation, Exit)")
         print("   • Issue 04: Grip/Slip Indicators & Safety Ampels (Green/Yellow/Red)")
+        print("   • Issue 05: Corner Ranking by Impact (IQR-normalized statistics)")
+        print("   • Issue 06: Coaching Candidates with Safety Constraints")
+        print("   • Issue 07: ML Utility Estimator (GBDT + Fallback Heuristic)")
+        print("   • Issue 08: Bandit Optimization (Thompson Sampling + Cooldown)")
+        print("   • Issue 09: Reviewer Service (Pattern Detection + Intensity Adjustment)")
+        print("   • Issue 10: German Language Templates (No Numbers/Meters)")
         print()
         print("🚦 Safety Ampel System:")
         print("   • Entry-Slip: Controls braking coaching safety")
@@ -57,7 +64,13 @@ async def main():
         print("   • Yellow: Progressive coaching only")
         print("   • Red: Coaching blocked, safety suggestions given")
         print()
-        print("🎮 Start a Time Trial session in F1® 25 to see the coach in action!")
+        print("🤖 AI Coaching Pipeline:")
+        print("   • Utility prediction with confidence bands")
+        print("   • Personalized action selection via Thompson sampling")
+        print("   • Real-time effectiveness evaluation and intensity adjustment")
+        print("   • Qualitative German coaching messages (no numbers)")
+        print()
+        print("🎮 Start a Time Trial session in F1® 25 to see the complete coach in action!")
         print("⏹️  Press Ctrl+C to stop")
         print("="*70)
         

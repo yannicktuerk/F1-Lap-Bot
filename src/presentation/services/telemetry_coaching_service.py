@@ -9,42 +9,60 @@ from src.application.services.safety_ampel_service import SafetyAmpelService
 from src.application.services.candidate_generator import CandidateGenerator
 from src.application.services.safety_gate_resolver import SafetyGateResolver
 from src.application.services.action_selector import ActionSelector
+from src.application.services.utility_estimator import UtilityEstimatorService
+from src.application.services.bandit_policy import BanditPolicy
+from src.application.services.reviewer_service import ReviewerService
+from src.application.services.message_builder import MessageBuilder
 from src.domain.services.gating_service import GatingService
 from src.domain.services.marker_detector import MarkerDetector, PhaseSegmenter
 from src.domain.services.slip_calculator import SlipCalculator
 from src.domain.services.corner_ranker import CornerRanker
 from src.domain.services.statistics_service import StatisticsService
+from src.domain.services.pattern_matcher import PatternMatcher
+from src.domain.services.template_engine import TemplateEngine, Language
 from src.domain.config.slip_config import SLIP_AMPEL_CONFIG
 from src.domain.value_objects.slip_indicators import SlipThresholds
 from src.infrastructure.telemetry.udp_telemetry_adapter import UdpTelemetryAdapter
 from src.infrastructure.persistence.sqlite_telemetry_repository import SQLiteTelemetryRepository
 from src.infrastructure.persistence.sqlite_corner_reference_repository import SQLiteCornerReferenceRepository
 from src.infrastructure.persistence.sqlite_coaching_repository import SQLiteCoachingRepository
+from src.infrastructure.persistence.sqlite_utility_repository import SQLiteUtilityRepository
+from src.infrastructure.persistence.sqlite_reviewer_repository import SQLiteReviewerRepository
+from src.infrastructure.persistence.model_persistence import ModelPersistence
+from src.infrastructure.persistence.localization_service import LocalizationService
 
 
 class TelemetryCoachingService:
-    """Enhanced integration service for F1 telemetry coaching pipeline with corner analysis."""
+    """Complete F1 telemetry coaching pipeline with ML utility estimation, bandit optimization, and review evaluation."""
     
     def __init__(self, 
                  udp_port: int = 20777,
                  udp_host: str = "127.0.0.1",
-                 database_path: Optional[str] = None):
+                 database_path: Optional[str] = None,
+                 language: Language = Language.GERMAN):
         """
-        Initialize telemetry coaching service with corner analysis and action generation.
+        Initialize complete telemetry coaching service with all components (Issues 01-10).
         
         Args:
             udp_port: UDP port for F1 telemetry (default: 20777)
             udp_host: UDP host address (default: 127.0.0.1)
             database_path: Optional database path (auto-detected if None)
+            language: Primary language for coaching messages
         """
         self.logger = logging.getLogger(__name__)
         
-        # Initialize repositories
+        # Initialize repositories (Issues 01-06 + 07-10)
         self.telemetry_repository = SQLiteTelemetryRepository(database_path)
         self.corner_reference_repository = SQLiteCornerReferenceRepository(database_path)
         self.coaching_repository = SQLiteCoachingRepository(database_path)
+        self.utility_repository = SQLiteUtilityRepository(database_path)
+        self.reviewer_repository = SQLiteReviewerRepository(database_path)
         
-        # Initialize core services
+        # Initialize persistence services (Issues 07-10)
+        self.model_persistence = ModelPersistence()
+        self.localization_service = LocalizationService()
+        
+        # Initialize core services (Issues 01-04)
         self.gating_service = GatingService()
         self.marker_detector = MarkerDetector(
             brake_threshold=0.1,
@@ -54,7 +72,7 @@ class TelemetryCoachingService:
         )
         self.phase_segmenter = PhaseSegmenter()
         
-        # Initialize slip calculation services
+        # Initialize slip calculation services (Issue 04)
         self.slip_calculator = SlipCalculator()
         self.safety_ampel_service = SafetyAmpelService(
             slip_calculator=self.slip_calculator,
@@ -68,6 +86,14 @@ class TelemetryCoachingService:
         self.candidate_generator = CandidateGenerator(self.statistics_service)
         self.safety_gate_resolver = SafetyGateResolver()
         self.action_selector = ActionSelector()
+        
+        # Initialize advanced services (Issues 07-10)
+        self.utility_estimator = UtilityEstimatorService(self.model_persistence)
+        self.bandit_policy = BanditPolicy(self.model_persistence)
+        self.pattern_matcher = PatternMatcher()
+        self.reviewer_service = ReviewerService(self.pattern_matcher)
+        self.template_engine = TemplateEngine(language)
+        self.message_builder = MessageBuilder(self.template_engine, self.localization_service, language)
         
         # Initialize use cases
         self.telemetry_processor = ProcessTelemetryUseCase(
@@ -129,7 +155,10 @@ class TelemetryCoachingService:
             self.logger.info("🔧 Marker detection and phase segmentation enabled")
             self.logger.info("🚦 Slip indicators and safety ampels online")
             self.logger.info("📊 Corner analysis and coaching pipeline ready (Issues 05-06)")
-            self.logger.info("🗄️ Database repositories initialized for telemetry and coaching data")
+            self.logger.info("🤖 ML utility estimator and bandit optimization active (Issues 07-08)")
+            self.logger.info("👁️ Reviewer service monitoring coaching effectiveness (Issue 09)")
+            self.logger.info("🗣️ German language templates ready for qualitative coaching (Issue 10)")
+            self.logger.info("🗄️ Database repositories initialized for all coaching data")
             
         except Exception as e:
             self.logger.error(f"❌ Failed to start telemetry coaching service: {e}")
@@ -171,7 +200,7 @@ class TelemetryCoachingService:
             self.logger.error(f"⚠️ Error stopping telemetry coaching service: {e}")
     
     def get_status(self) -> dict:
-        """Get current service status and metrics including coaching data."""
+        """Get current service status and metrics including all coaching components (Issues 01-10)."""
         metrics = self.telemetry_processor.get_gating_metrics()
         completed_turns = self.telemetry_processor.get_completed_turns()
         
@@ -184,7 +213,11 @@ class TelemetryCoachingService:
                 "corner_analysis": True,
                 "coaching_actions": True,
                 "safety_ampels": True,
-                "database_storage": True
+                "database_storage": True,
+                "utility_estimation": True,
+                "bandit_optimization": True,
+                "review_evaluation": True,
+                "language_templates": True
             },
             "session": {
                 "session_uid": self.current_session_uid,
@@ -212,7 +245,12 @@ class TelemetryCoachingService:
                     "exit_speed": turn.markers.exit_speed
                 }
                 for turn in completed_turns[-5:]  # Last 5 turns
-            ]
+            ],
+            # Advanced service status (Issues 07-10)
+            "utility_estimator": self.utility_estimator.get_estimation_status(),
+            "bandit_policy": self.bandit_policy.get_bandit_status(),
+            "reviewer_service": self.reviewer_service.get_reviewer_status(),
+            "message_builder": self.message_builder.get_message_builder_status()
         }
     
     async def reset_metrics(self) -> None:
