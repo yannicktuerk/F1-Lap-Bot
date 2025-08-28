@@ -4,8 +4,12 @@ import logging
 from typing import Optional
 
 from src.application.use_cases.process_telemetry import ProcessTelemetryUseCase
+from src.application.services.safety_ampel_service import SafetyAmpelService
 from src.domain.services.gating_service import GatingService
 from src.domain.services.marker_detector import MarkerDetector, PhaseSegmenter
+from src.domain.services.slip_calculator import SlipCalculator
+from src.domain.config.slip_config import SLIP_AMPEL_CONFIG
+from src.domain.value_objects.slip_indicators import SlipThresholds
 from src.infrastructure.telemetry.udp_telemetry_adapter import UdpTelemetryAdapter
 
 
@@ -34,11 +38,20 @@ class TelemetryCoachingService:
         )
         self.phase_segmenter = PhaseSegmenter()
         
+        # Initialize slip calculation services
+        self.slip_calculator = SlipCalculator()
+        self.safety_ampel_service = SafetyAmpelService(
+            slip_calculator=self.slip_calculator,
+            entry_thresholds=SlipThresholds(**SLIP_AMPEL_CONFIG["entry"]),
+            exit_thresholds=SlipThresholds(**SLIP_AMPEL_CONFIG["exit"])
+        )
+        
         # Initialize use case
         self.telemetry_processor = ProcessTelemetryUseCase(
             gating_service=self.gating_service,
             marker_detector=self.marker_detector,
-            phase_segmenter=self.phase_segmenter
+            phase_segmenter=self.phase_segmenter,
+            safety_ampel_service=self.safety_ampel_service
         )
         
         # Initialize UDP adapter
@@ -74,6 +87,7 @@ class TelemetryCoachingService:
             self.logger.info(f"📡 Listening for F1® 25 UDP telemetry on {self.udp_adapter.host}:{self.udp_adapter.port}")
             self.logger.info("🎯 TT-only, Valid-only, Player-only gating active")
             self.logger.info("🔧 Marker detection and phase segmentation enabled")
+            self.logger.info("🚦 Slip indicators and safety ampels online")
             
         except Exception as e:
             self.logger.error(f"❌ Failed to start telemetry coaching service: {e}")
@@ -105,6 +119,9 @@ class TelemetryCoachingService:
             self.logger.info(f"   • Packets passed gating: {metrics.passed_samples}")
             self.logger.info(f"   • Pass rate: {metrics.pass_rate:.1f}%")
             self.logger.info(f"   • Completed turns analyzed: {completed_turns}")
+            
+            # Log safety ampel metrics
+            self.safety_ampel_service.log_metrics()
             
             self.logger.info("✅ F1 Telemetry Coaching Service stopped")
             

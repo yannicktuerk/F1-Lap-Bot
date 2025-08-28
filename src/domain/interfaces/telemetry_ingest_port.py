@@ -7,7 +7,8 @@ from src.domain.entities.telemetry_sample import (
     SessionInfo,
     LapInfo,
     CarTelemetryInfo,
-    TimeTrialInfo
+    TimeTrialInfo,
+    MotionExInfo
 )
 
 
@@ -24,6 +25,10 @@ class TelemetryIngestPort(Protocol):
     
     async def on_car_telemetry(self, car_telemetry: CarTelemetryInfo) -> None:
         """Handle car telemetry update."""
+        ...
+    
+    async def on_motion_ex(self, motion_ex_info: MotionExInfo) -> None:
+        """Handle motion ex data update."""
         ...
     
     async def on_time_trial(self, time_trial_info: TimeTrialInfo) -> None:

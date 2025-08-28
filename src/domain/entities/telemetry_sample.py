@@ -50,6 +50,29 @@ class CarTelemetryInfo:
     
 
 @dataclass
+class MotionExInfo:
+    """Extended motion data from F1 telemetry (Motion Ex packet ID 13)."""
+    # Wheel slip data (RL, RR, FL, FR indices)
+    wheel_slip_ratio: list[float]  # Slip ratio for each wheel
+    wheel_slip_angle: list[float]  # Slip angles for each wheel in radians
+    wheel_lat_force: list[float]   # Lateral forces for each wheel
+    wheel_long_force: list[float]  # Longitudinal forces for each wheel
+    wheel_speed: list[float]       # Speed of each wheel
+    
+    # Vehicle dynamics
+    local_velocity_x: float        # Velocity in local space (forward/backward)
+    local_velocity_y: float        # Velocity in local space (lateral)
+    local_velocity_z: float        # Velocity in local space (vertical)
+    front_wheels_angle: float      # Current front wheels angle in radians
+    
+    # Additional physics data
+    height_of_cog_above_ground: float
+    angular_velocity_x: float      # Angular velocity x-component
+    angular_velocity_y: float      # Angular velocity y-component  
+    angular_velocity_z: float      # Angular velocity z-component
+
+
+@dataclass
 class TimeTrialInfo:
     """Time Trial specific information from F1 telemetry."""
     is_personal_best: bool
@@ -69,6 +92,7 @@ class PlayerTelemetrySample:
     session_info: SessionInfo
     lap_info: LapInfo
     car_telemetry: CarTelemetryInfo
+    motion_ex_info: Optional[MotionExInfo] = None
     time_trial_info: Optional[TimeTrialInfo] = None
     player_car_index: int = 0
     
@@ -85,3 +109,8 @@ class PlayerTelemetrySample:
             self.lap_info.is_valid_lap and
             self.session_info.session_time > 0
         )
+    
+    @property
+    def has_slip_data(self) -> bool:
+        """Check if this sample has slip data available."""
+        return self.motion_ex_info is not None

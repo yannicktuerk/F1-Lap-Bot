@@ -14,7 +14,8 @@ from f1.packets import (
     PacketLapData,
     PacketCarTelemetryData,
     PacketTimeTrialData,
-    PacketParticipantsData
+    PacketParticipantsData,
+    PacketMotionExData
 )
 
 from src.domain.entities.telemetry_sample import (
@@ -22,7 +23,8 @@ from src.domain.entities.telemetry_sample import (
     SessionInfo,
     LapInfo,
     CarTelemetryInfo,
-    TimeTrialInfo
+    TimeTrialInfo,
+    MotionExInfo
 )
 from src.domain.interfaces.telemetry_ingest_port import TelemetryIngestPort
 from src.domain.services.gating_service import GatingService
@@ -55,6 +57,7 @@ class UdpTelemetryAdapter:
         self._current_session: Optional[SessionInfo] = None
         self._current_lap_data: Dict[int, LapInfo] = {}  # car_index -> LapInfo
         self._current_telemetry_data: Dict[int, CarTelemetryInfo] = {}  # car_index -> CarTelemetryInfo
+        self._current_motion_ex_data: Optional[MotionExInfo] = None  # Motion Ex data (player only)
         self._current_time_trial: Optional[TimeTrialInfo] = None
         self._player_car_index: Optional[int] = None
         
@@ -146,6 +149,8 @@ class UdpTelemetryAdapter:
                 self._handle_lap_data_packet(packet)
             elif packet_id == self.PACKET_ID_CAR_TELEMETRY:
                 self._handle_car_telemetry_packet(packet)
+            elif packet_id == self.PACKET_ID_MOTION_EX:
+                self._handle_motion_ex_packet(packet)
             elif packet_id == self.PACKET_ID_TIME_TRIAL:
                 self._handle_time_trial_packet(packet)
             elif packet_id == self.PACKET_ID_PARTICIPANTS:
@@ -286,6 +291,63 @@ class UdpTelemetryAdapter:
         except Exception as e:
             self.logger.error(f"Error handling car telemetry packet: {e}")
     
+    def _handle_motion_ex_packet(self, packet: PacketMotionExData) -> None:
+        """Handle motion ex packet (ID 13) - extended motion data for player car only."""
+        try:
+            # Motion Ex packet only contains data for the player car
+            motion_ex_info = MotionExInfo(
+                wheel_slip_ratio=[
+                    packet.wheel_slip_ratio[0],  # RL
+                    packet.wheel_slip_ratio[1],  # RR  
+                    packet.wheel_slip_ratio[2],  # FL
+                    packet.wheel_slip_ratio[3]   # FR
+                ],
+                wheel_slip_angle=[
+                    packet.wheel_slip_angle[0],  # RL
+                    packet.wheel_slip_angle[1],  # RR
+                    packet.wheel_slip_angle[2],  # FL
+                    packet.wheel_slip_angle[3]   # FR
+                ],
+                wheel_lat_force=[
+                    packet.wheel_lat_force[0],   # RL
+                    packet.wheel_lat_force[1],   # RR
+                    packet.wheel_lat_force[2],   # FL
+                    packet.wheel_lat_force[3]    # FR
+                ],
+                wheel_long_force=[
+                    packet.wheel_long_force[0],  # RL
+                    packet.wheel_long_force[1],  # RR
+                    packet.wheel_long_force[2],  # FL
+                    packet.wheel_long_force[3]   # FR
+                ],
+                wheel_speed=[
+                    packet.wheel_speed[0],       # RL
+                    packet.wheel_speed[1],       # RR
+                    packet.wheel_speed[2],       # FL
+                    packet.wheel_speed[3]        # FR
+                ],
+                local_velocity_x=packet.local_velocity_x,
+                local_velocity_y=packet.local_velocity_y,
+                local_velocity_z=packet.local_velocity_z,
+                front_wheels_angle=packet.front_wheels_angle,
+                height_of_cog_above_ground=packet.height_of_cog_above_ground,
+                angular_velocity_x=packet.angular_velocity_x,
+                angular_velocity_y=packet.angular_velocity_y,
+                angular_velocity_z=packet.angular_velocity_z
+            )
+            
+            self._current_motion_ex_data = motion_ex_info
+            self.logger.debug(f"Motion Ex update: slip_ratio={motion_ex_info.wheel_slip_ratio}")
+            
+            # Notify handlers
+            asyncio.create_task(self._notify_handlers_motion_ex(motion_ex_info))
+            
+            # Try to create complete telemetry sample
+            asyncio.create_task(self._try_create_telemetry_sample(packet.header))
+            
+        except Exception as e:
+            self.logger.error(f"Error handling motion ex packet: {e}")
+
     def _handle_time_trial_packet(self, packet: PacketTimeTrialData) -> None:
         """Handle time trial packet (ID 14)."""
         try:
@@ -339,6 +401,7 @@ class UdpTelemetryAdapter:
                 session_info=self._current_session,
                 lap_info=self._current_lap_data[self._player_car_index],
                 car_telemetry=self._current_telemetry_data[self._player_car_index],
+                motion_ex_info=self._current_motion_ex_data,
                 time_trial_info=self._current_time_trial,
                 player_car_index=self._player_car_index
             )
@@ -372,6 +435,14 @@ class UdpTelemetryAdapter:
             except Exception as e:
                 self.logger.error(f"Error notifying handler {type(handler).__name__} of car telemetry: {e}")
     
+    async def _notify_handlers_motion_ex(self, motion_ex_info: MotionExInfo) -> None:
+        """Notify all handlers of motion ex update."""
+        for handler in self._ingest_handlers:
+            try:
+                await handler.on_motion_ex(motion_ex_info)
+            except Exception as e:
+                self.logger.error(f"Error notifying handler {type(handler).__name__} of motion ex: {e}")
+
     async def _notify_handlers_time_trial(self, time_trial_info: TimeTrialInfo) -> None:
         """Notify all handlers of time trial update."""
         for handler in self._ingest_handlers:

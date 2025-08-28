@@ -3,7 +3,9 @@
 F1 Telemetry Coaching Service - Standalone Entry Point
 
 This service implements the UDP telemetry listener and coaching pipeline for F1® 25.
-Issues implemented: 01 (UDP Listener), 02 (Functional Gating), 03 (Markers & Phases)
+Issues implemented: 
+- 01 (UDP Listener), 02 (Functional Gating), 03 (Markers & Phases)
+- 04 (Grip/Slip Indicators & Safety Ampels)
 """
 import sys
 import os
@@ -46,6 +48,14 @@ async def main():
         print("   • Issue 01: UDP Listener + Packet Decoder (F1® 25 v3)")
         print("   • Issue 02: Functional Gating (TT-only, Valid-only, Player-only)")
         print("   • Issue 03: Markers & Phases (Entry, Rotation, Exit)")
+        print("   • Issue 04: Grip/Slip Indicators & Safety Ampels (Green/Yellow/Red)")
+        print()
+        print("🚦 Safety Ampel System:")
+        print("   • Entry-Slip: Controls braking coaching safety")
+        print("   • Exit-Slip: Controls throttle coaching safety")
+        print("   • Green: All coaching allowed")
+        print("   • Yellow: Progressive coaching only")
+        print("   • Red: Coaching blocked, safety suggestions given")
         print()
         print("🎮 Start a Time Trial session in F1® 25 to see the coach in action!")
         print("⏹️  Press Ctrl+C to stop")

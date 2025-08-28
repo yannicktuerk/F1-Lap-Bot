@@ -7,7 +7,8 @@ from src.domain.entities.telemetry_sample import (
     SessionInfo,
     LapInfo,
     CarTelemetryInfo,
-    TimeTrialInfo
+    TimeTrialInfo,
+    MotionExInfo
 )
 from src.domain.interfaces.telemetry_ingest_port import TelemetryIngestPort
 from src.domain.services.gating_service import GatingService
@@ -20,7 +21,8 @@ class ProcessTelemetryUseCase(TelemetryIngestPort):
     def __init__(self, 
                  gating_service: Optional[GatingService] = None,
                  marker_detector: Optional[MarkerDetector] = None,
-                 phase_segmenter: Optional[PhaseSegmenter] = None):
+                 phase_segmenter: Optional[PhaseSegmenter] = None,
+                 safety_ampel_service: Optional['SafetyAmpelService'] = None):
         """
         Initialize telemetry processing use case.
         
@@ -28,11 +30,13 @@ class ProcessTelemetryUseCase(TelemetryIngestPort):
             gating_service: Service for applying gating rules
             marker_detector: Service for detecting telemetry markers
             phase_segmenter: Service for segmenting turn phases
+            safety_ampel_service: Service for safety ampel analysis
         """
         self.logger = logging.getLogger(__name__)
         self.gating_service = gating_service or GatingService()
         self.marker_detector = marker_detector or MarkerDetector()
         self.phase_segmenter = phase_segmenter or PhaseSegmenter()
+        self.safety_ampel_service = safety_ampel_service
         
         # State tracking
         self._current_session: Optional[SessionInfo] = None
@@ -116,6 +120,22 @@ class ProcessTelemetryUseCase(TelemetryIngestPort):
             # - Utility estimation
             await self._analyze_completed_turn(completed_turn)
     
+    async def on_motion_ex(self, motion_ex_info: MotionExInfo) -> None:
+        """Handle motion ex data update."""
+        if not self._is_active:
+            return
+        
+        # Only process in Time Trial sessions
+        if not self._current_session or not self._current_session.is_time_trial:
+            return
+        
+        self.logger.debug(
+            f"Motion Ex data: slip_ratios={motion_ex_info.wheel_slip_ratio}, "
+            f"slip_angles={motion_ex_info.wheel_slip_angle}"
+        )
+        
+        # Motion Ex data will be used in complete telemetry sample processing
+    
     async def on_time_trial(self, time_trial_info: TimeTrialInfo) -> None:
         """Handle time trial specific information."""
         if not self._is_active:
@@ -133,6 +153,28 @@ class ProcessTelemetryUseCase(TelemetryIngestPort):
         """Handle complete player telemetry sample."""
         if not self._is_active:
             return
+        
+        # Process slip indicators if available
+        if sample.has_slip_data and self.safety_ampel_service:
+            slip_analysis = self.safety_ampel_service.analyze_safety_ampels(sample)
+            
+            if slip_analysis:
+                # Log safety analysis
+                entry_color = slip_analysis.entry_ampel.color.value
+                exit_color = slip_analysis.exit_ampel.color.value
+                
+                self.logger.debug(
+                    f"Safety Ampels: Entry={entry_color}, Exit={exit_color}, "
+                    f"Combined_slip={slip_analysis.entry_ampel.slip_metrics.combined_slip_factor:.3f}"
+                )
+                
+                # Get coaching constraints
+                constraints = self.safety_ampel_service.get_coaching_constraints(slip_analysis)
+                
+                # Log any blocked coaching opportunities
+                blocked_actions = [k for k, v in constraints.items() if not v and "can_coach" in k]
+                if blocked_actions:
+                    self.logger.info(f"Coaching blocked by safety: {blocked_actions}")
         
         # The complete sample processing happens via the individual callbacks
         # This method could be used for holistic analysis that requires all data
