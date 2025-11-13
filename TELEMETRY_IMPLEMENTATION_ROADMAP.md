@@ -20,11 +20,7 @@ The implementation follows a **bottom-up approach** respecting Clean Architectur
 
 ### Priority Order:
 
-1. **#33 - Create CarSetupSnapshot Entity**
-   - Independent entity
-   - No dependencies on other domain objects
-
-3. **#34 - Create LapTrace Entity**
+1. **#34 - Create LapTrace Entity**
    - Depends on: #32 (TelemetrySample)
    - Aggregates telemetry samples
 
