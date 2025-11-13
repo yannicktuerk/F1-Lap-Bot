@@ -20,11 +20,7 @@ The implementation follows a **bottom-up approach** respecting Clean Architectur
 
 ### Priority Order:
 
-1. **#34 - Create LapTrace Entity**
-   - Depends on: #32 (TelemetrySample)
-   - Aggregates telemetry samples
-
-4. **#35 - Define TelemetryRepository Interface**
+1. **#35 - Define TelemetryRepository Interface**
    - Depends on: #32, #33, #34
    - Domain layer contract for persistence
 
