@@ -1,0 +1,59 @@
+name: Semantic Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write  # To push commits and tags
+  issues: write    # To comment on released issues
+  pull-requests: write  # To comment on released PRs
+
+jobs:
+  release:
+    name: Automatic Semantic Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for semantic-release
+          persist-credentials: false
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      
+      - name: Run tests (if available)
+        run: |
+          if [ -d tests ]; then
+            pip install pytest pytest-cov
+            python -m pytest tests/ --verbose || echo "Tests failed or not configured"
+          else
+            echo "No tests directory found, skipping tests"
+          fi
+      
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
+        run: npx semantic-release

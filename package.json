@@ -1,0 +1,23 @@
+{
+  "name": "f1-lap-bot",
+  "version": "0.0.0-development",
+  "description": "F1 Lap Time Discord Bot with telemetry integration",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yannicktuerk/F1-Lap-Bot.git"
+  },
+  "author": "Yannick Türk",
+  "license": "MIT",
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^9.2.6",
+    "semantic-release": "^23.0.0"
+  },
+  "release": {
+    "branches": [
+      "main"
+    ]
+  }
+}
