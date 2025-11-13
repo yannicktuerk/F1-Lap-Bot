@@ -105,7 +105,6 @@ CHANGELOG.md
 
 # Node.js (for semantic-release)
 node_modules/
-package-lock.json
 
 # F1 Lap Bot specific - NEVER commit personal data!
 config.json
