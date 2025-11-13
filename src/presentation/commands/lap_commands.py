@@ -6,6 +6,7 @@ from discord import app_commands
 from typing import Optional
 from ...domain.value_objects.track_name import TrackName
 from ...domain.value_objects.time_format import TimeFormat
+from .embed_builder import EmbedBuilder, MEDALS, SKILL_EMOJIS, SKILL_COLORS
 
 
 class LapCommands(commands.Cog):
@@ -13,15 +14,11 @@ class LapCommands(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        self.embed_builder = EmbedBuilder()
     
     def _format_time_seconds(self, total_seconds: float) -> str:
         """Format seconds to MM:SS.mmm or SS.mmm format."""
-        if total_seconds >= 60:
-            minutes = int(total_seconds // 60)
-            seconds = total_seconds % 60
-            return f"{minutes}:{seconds:06.3f}"
-        else:
-            return f"{total_seconds:.3f}s"
+        return self.embed_builder.format_time_seconds(total_seconds)
     
     async def _get_user_display_name(self, user_id: str, fallback_name: str) -> str:
         """Get the user's stored custom username, or fall back to Discord display name."""
@@ -82,69 +79,12 @@ class LapCommands(commands.Cog):
                 track_string=track
             )
             
-            # Create response embed
-            if is_overall_best:
-                embed = discord.Embed(
-                    title="🏆 NEW TRACK RECORD!",
-                    description=f"Congratulations! You've set a new track record!",
-                    color=discord.Color.gold()
-                )
-            elif is_personal_best:
-                embed = discord.Embed(
-                    title="🎯 Personal Best!",
-                    description="You've improved your personal best time!",
-                    color=discord.Color.green()
-                )
-            else:
-                embed = discord.Embed(
-                    title="⏱️ Lap Time Recorded",
-                    description="Your lap time has been recorded.",
-                    color=discord.Color.blue()
-                )
-            
-            embed.add_field(
-                name="Driver",
-                value=lap_time.username,
-                inline=True
+            # Create response embed using builder
+            embed = self.embed_builder.create_lap_submission_embed(
+                lap_time, is_personal_best, is_overall_best, self._format_time_seconds
             )
             
-            embed.add_field(
-                name="Time",
-                value=f"`{lap_time.time_format}`",
-                inline=True
-            )
-            
-            embed.add_field(
-                name="Track",
-                value=f"🌍 **{lap_time.track_name.display_name}**\n({lap_time.track_name.country})",
-                inline=True
-            )
-            
-            # Add sector times if available (from telemetry)
-            if lap_time.sector1_ms or lap_time.sector2_ms or lap_time.sector3_ms:
-                sector_text = ""
-                if lap_time.sector1_ms and lap_time.sector1_ms > 0:
-                    s1_time = self._format_time_seconds(lap_time.sector1_ms / 1000.0)
-                    sector_text += f"S1: `{s1_time}`\n"
-                if lap_time.sector2_ms and lap_time.sector2_ms > 0:
-                    s2_time = self._format_time_seconds(lap_time.sector2_ms / 1000.0)
-                    sector_text += f"S2: `{s2_time}`\n"
-                if lap_time.sector3_ms and lap_time.sector3_ms > 0:
-                    s3_time = self._format_time_seconds(lap_time.sector3_ms / 1000.0)
-                    sector_text += f"S3: `{s3_time}`"
-                
-                if sector_text:
-                    embed.add_field(
-                        name="🎯 Sectors",
-                        value=sector_text,
-                        inline=False
-                    )
-            
-            # Add beautiful track visuals
-            embed.set_image(url=lap_time.track_name.image_url)
-            embed.set_thumbnail(url=lap_time.track_name.flag_url)
-            
-            # Add comparison info if not the first time
+            # Add comparison info if overall best
             if is_overall_best:
                 # Check if there was a previous leader
                 previous_best = await self.bot.lap_time_repository.find_best_by_track(lap_time.track_name)
@@ -166,10 +106,10 @@ class LapCommands(commands.Cog):
             await self.bot.log_to_history(lap_time, is_personal_best, is_overall_best)
             
         except ValueError as e:
-            error_embed = discord.Embed(
-                title="❌ Invalid Input",
-                description=str(e),
-                color=discord.Color.red()
+            error_embed = self.embed_builder.create_error_embed(
+                "❌ Invalid Input",
+                str(e),
+                add_examples="track" in str(e).lower()
             )
             
             if "time format" in str(e).lower():
@@ -213,46 +153,8 @@ class LapCommands(commands.Cog):
             track_obj = TrackName(track)
             top_times = await self.bot.lap_time_repository.find_top_by_track(track_obj, 10)
             
-            embed = discord.Embed(
-                title=f"🏁 {track_obj.display_name}",
-                description=f"🌍 **{track_obj.country}** • Top 10 fastest lap times",
-                color=discord.Color.red()
-            )
-            
-            # Add beautiful track visuals
-            embed.set_image(url=track_obj.image_url)
-            embed.set_thumbnail(url=track_obj.flag_url)
-            
-            if not top_times:
-                embed.add_field(
-                    name="No times yet",
-                    value="Be the first to submit a lap time with `/lap submit`!",
-                    inline=False
-                )
-            else:
-                medals = ["🥇", "🥈", "🥉"]
-                leaderboard_text = ""
-                
-                for i, lap_time in enumerate(top_times):
-                    position_icon = medals[i] if i < 3 else f"`{i+1}.`"
-                    
-                    # Calculate gap to next position (or to leader if first position)
-                    gap_text = ""
-                    if i == 0:
-                        gap_text = " 🏆"  # Leader indicator
-                    elif i < len(top_times):
-                        # Calculate gap to the position above (faster time)
-                        previous_time = top_times[i-1]
-                        gap_seconds = lap_time.time_format.total_seconds - previous_time.time_format.total_seconds
-                        gap_text = f" `(+{gap_seconds:.3f}s)`"
-                    
-                    leaderboard_text += f"{position_icon} **{lap_time.username}** - `{lap_time.time_format}`{gap_text}\n"
-                
-                embed.add_field(
-                    name="🏆 Leaderboard",
-                    value=leaderboard_text,
-                    inline=False
-                )
+            # Use embed builder for leaderboard
+            embed = self.embed_builder.create_leaderboard_embed(track_obj, top_times, self._format_time_seconds)
             
             # Add track statistics
             stats = await self.bot.lap_time_repository.get_track_statistics(track_obj)
@@ -264,25 +166,22 @@ class LapCommands(commands.Cog):
                           f"Average: `{self._format_time_seconds(stats['average_time_seconds'])}`",
                     inline=True
                 )
+            
             # Get fastest sectors
             fastest_sectors = await self.bot.lap_time_repository.get_fastest_sectors_by_track(track_obj)
 
-            if fastest_sectors['sector1_ms'] is not None and fastest_sectors['sector2_ms'] is not None and fastest_sectors['sector3_ms'] is not None:
-                total_fastest_time_ms = (
-                    fastest_sectors['sector1_ms'] + 
-                    fastest_sectors['sector2_ms'] + 
-                    fastest_sectors['sector3_ms']
-                )
+            if all(fastest_sectors.get(f'sector{i}_ms') is not None for i in range(1, 4)):
+                total_fastest_time_ms = sum(fastest_sectors[f'sector{i}_ms'] for i in range(1, 4))
                 fastest_time_str = self._format_time_seconds(total_fastest_time_ms / 1000.0)
-                s1_time_str = self._format_time_seconds(fastest_sectors['sector1_ms'] / 1000.0)
-                s2_time_str = self._format_time_seconds(fastest_sectors['sector2_ms'] / 1000.0)
-                s3_time_str = self._format_time_seconds(fastest_sectors['sector3_ms'] / 1000.0)
+                
+                sector_lines = [
+                    f"S{i}: `{self._format_time_seconds(fastest_sectors[f'sector{i}_ms'] / 1000.0)}` by **{fastest_sectors[f'sector{i}_driver']}**"
+                    for i in range(1, 4)
+                ]
                 
                 embed.add_field(
                     name="🚀 Fastest Sectors",
-                    value=(f"S1: `{s1_time_str}` by **{fastest_sectors['sector1_driver']}**\n"
-                           f"S2: `{s2_time_str}` by **{fastest_sectors['sector2_driver']}**\n"
-                           f"S3: `{s3_time_str}` by **{fastest_sectors['sector3_driver']}**\n"
+                    value="\n".join(sector_lines) + f"\n**Total:** `{fastest_time_str}`",
                            f"**Total:** `{fastest_time_str}`"),
                     inline=False
                 )
@@ -1641,16 +1540,7 @@ class LapCommands(commands.Cog):
     
     def _get_skill_color(self, skill_level: str) -> discord.Color:
         """Get color based on skill level."""
-        colors = {
-            "Legendary": discord.Color.from_rgb(255, 215, 0),  # Gold
-            "Master": discord.Color.from_rgb(192, 192, 192),   # Silver
-            "Expert": discord.Color.from_rgb(205, 127, 50),    # Bronze
-            "Advanced": discord.Color.purple(),
-            "Intermediate": discord.Color.blue(),
-            "Novice": discord.Color.green(),
-            "Beginner": discord.Color.light_grey()
-        }
-        return colors.get(skill_level, discord.Color.blue())
+        return self.embed_builder.get_skill_color(skill_level)
     
     @app_commands.command(name="elo-leaderboard", description="🏆 Show the ELO rating leaderboard")
     async def show_elo_leaderboard(self, interaction: discord.Interaction):
@@ -1713,16 +1603,7 @@ class LapCommands(commands.Cog):
     
     def _get_skill_emoji(self, skill_level: str) -> str:
         """Get emoji for skill level."""
-        emojis = {
-            "Legendary": "👑",
-            "Master": "🔥",
-            "Expert": "⚡",
-            "Advanced": "🎯",
-            "Intermediate": "📈",
-            "Novice": "🌱",
-            "Beginner": "🏁"
-        }
-        return emojis.get(skill_level, "🏁")
+        return self.embed_builder.get_skill_emoji(skill_level)
     
     @app_commands.command(name="recalculate", description="🔄 Recalculate all ELO ratings based on existing lap times")
     async def recalculate_elo_ratings(self, interaction: discord.Interaction):
