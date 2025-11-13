@@ -99,6 +99,9 @@ poetry.lock
 *.tmp
 *.temp
 
+# Version file - generated during CI/CD
+VERSION
+
 # F1 Lap Bot specific - NEVER commit personal data!
 config.json
 config_*.json

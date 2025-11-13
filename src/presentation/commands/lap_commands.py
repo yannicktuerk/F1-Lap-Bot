@@ -8,6 +8,7 @@ from ...domain.value_objects.track_name import TrackName
 from ...domain.value_objects.time_format import TimeFormat
 from .embed_builder import EmbedBuilder, MEDALS, SKILL_EMOJIS, SKILL_COLORS
 from .analytics_service import AnalyticsService
+from ...version import get_version, get_version_info
 
 
 class LapCommands(commands.Cog):
@@ -2152,6 +2153,61 @@ class LapCommands(commands.Cog):
             )
             await interaction.followup.send(embed=error_embed, ephemeral=True)
     
+    @app_commands.command(name="version", description="📋 Show bot version information")
+    async def show_version(self, interaction: discord.Interaction):
+        """Show the current bot version and details."""
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            version_info = get_version_info()
+            version = version_info["version"]
+            
+            embed = discord.Embed(
+                title="🏎️ F1 Lap Bot Version",
+                color=discord.Color.from_rgb(229, 43, 80)  # F1 Red
+            )
+            
+            # Version information
+            if version_info["is_development"]:
+                embed.description = f"**Version:** `{version}` (Development Mode)"
+                embed.add_field(
+                    name="💡 Info",
+                    value="Running in development mode. Version is not tracked from git tags.",
+                    inline=False
+                )
+            else:
+                embed.description = f"**Version:** `{version}`"
+                
+                # Add semantic version breakdown if available
+                if "major" in version_info:
+                    version_breakdown = (
+                        f"**Major:** `{version_info['major']}`\n"
+                        f"**Minor:** `{version_info['minor']}`\n"
+                        f"**Patch:** `{version_info['patch']}`"
+                    )
+                    embed.add_field(
+                        name="📊 Semantic Version",
+                        value=version_breakdown,
+                        inline=True
+                    )
+            
+            embed.add_field(
+                name="🔗 Links",
+                value="[GitHub Repository](https://github.com/yannicktuerk/F1-Lap-Bot)\n"
+                      "[Report Issue](https://github.com/yannicktuerk/F1-Lap-Bot/issues)",
+                inline=True
+            )
+            
+            embed.set_footer(
+                text="Use /lap help for command overview"
+            )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            print(f"❌ Error in version command: {e}")
+            await interaction.followup.send("❌ Error displaying version information.", ephemeral=True)
+    
     @app_commands.command(name="help", description="📚 Show all available F1 Lap Bot commands and features")
     async def show_help(self, interaction: discord.Interaction):
         """Show comprehensive help with all available commands and features."""
@@ -2309,6 +2365,7 @@ async def setup(bot):
         lap_group.add_command(cog.recalculate_elo_ratings)
         lap_group.add_command(cog.show_elo_rank_help)
         lap_group.add_command(cog.update_username)
+        lap_group.add_command(cog.show_version)
         lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
         lap_group.add_command(cog.reset_database)
