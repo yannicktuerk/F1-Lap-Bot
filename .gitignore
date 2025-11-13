@@ -56,6 +56,7 @@ desktop.ini
 *.sqlite
 *.sqlite3
 # lap_times.db - Allow committing for server
+telemetry.db
 
 # Data directory - Allow committing for server deployment
 # data/ - Commented out to allow database commits
@@ -121,9 +122,11 @@ my_config.json
 personal_*.json
 
 # Temporary scripts and test files
-test_*.py
+# Ignore test_*.py in root but allow tests/ directory
+/test_*.py
 consolidate_*.py
-*.sql
+# Allow SQL migrations, but ignore temporary SQL files
+temp_*.sql
 *.zip
 
 # Old UDP listener files
