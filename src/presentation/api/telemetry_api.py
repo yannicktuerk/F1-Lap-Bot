@@ -94,12 +94,20 @@ class TelemetryAPI:
             print(f"\n📡 TELEMETRY API: Received request")
             print(f"🔍 Full request data: {json.dumps(data, indent=2)}")
             
-            # Extract required fields
-            user_id = data.get('user_id')
-            time_str = data.get('time')
-            track_str = data.get('track') 
+            # Extract and validate required fields
+            required_fields = {'user_id': 'user_id', 'time': 'time', 'track': 'track'}
+            missing_fields = [name for key, name in required_fields.items() if not data.get(key)]
+            
+            if missing_fields:
+                return web.json_response(
+                    {'error': f'Missing required field(s): {", ".join(missing_fields)}'},
+                    status=400
+                )
+            
+            user_id = data['user_id']
+            time_str = data['time']
+            track_str = data['track']
             source = data.get('source', 'telemetry')
-            timestamp = data.get('timestamp')
             
             # Extract sector times if provided
             sector_times = data.get('sector_times', {})
@@ -110,25 +118,6 @@ class TelemetryAPI:
             # Debug logging for sector times
             print(f"🔍 EXTRACTED: User={user_id}, Time={time_str}, Track={track_str}")
             print(f"🔍 SECTORS: S1={sector1_ms}ms, S2={sector2_ms}ms, S3={sector3_ms}ms")
-            
-            # Validate required fields
-            if not user_id:
-                return web.json_response(
-                    {'error': 'Missing user_id field'},
-                    status=400
-                )
-            
-            if not time_str:
-                return web.json_response(
-                    {'error': 'Missing time field'},
-                    status=400
-                )
-                
-            if not track_str:
-                return web.json_response(
-                    {'error': 'Missing track field'},
-                    status=400
-                )
             
             # Get user info (we need username for the submission)
             username = await self._get_discord_username(user_id)

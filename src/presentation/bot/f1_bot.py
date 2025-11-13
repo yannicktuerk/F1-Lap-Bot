@@ -179,7 +179,7 @@ class F1LapBot(commands.Bot):
             all_track_keys = list(TrackName.TRACK_DATA.keys())
             tracks_with_times = []
             
-            # First, collect all tracks that have lap times
+            # Collect all tracks that have lap times
             for track_key in all_track_keys:
                 try:
                     track = TrackName(track_key)
@@ -199,12 +199,13 @@ class F1LapBot(commands.Bot):
                 color=discord.Color.red()
             )
             
-            # Build track overview
-            track_overview = ""
-            for track_key, track, best_time in tracks_with_times:
-                track_overview += f"{track.flag_emoji} **{track.short_name}** - {best_time.username} `{best_time.time_format}`\n"
-            
-            if track_overview:
+            # Build track overview using list comprehension
+            if tracks_with_times:
+                track_overview = "\n".join(
+                    f"{track.flag_emoji} **{track.short_name}** - {best_time.username} `{best_time.time_format}`"
+                    for _, track, best_time in tracks_with_times
+                )
+                
                 embed.add_field(
                     name="🏆 Track Records",
                     value=track_overview,
