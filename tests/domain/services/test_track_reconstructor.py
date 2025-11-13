@@ -441,3 +441,291 @@ class TestTrackReconstructor:
         
         # Last distance should be > 0
         assert distances[-1] > 0, "Final distance should be positive"
+
+
+class TestTrackReconstructorCurvature:
+    """Test suite for curvature computation."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.reconstructor = TrackReconstructor()
+    
+    def test_straight_line_zero_curvature(self):
+        """Test that a straight line has curvature ≈ 0."""
+        # Create straight line: 1000m long
+        num_points = 200
+        x = np.linspace(0, 1000, num_points)
+        z = np.zeros(num_points)
+        centerline = np.column_stack([x, z])
+        distances = x  # Distance equals x for straight line
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Validate results
+        assert len(curvature) == num_points, "Curvature length matches centerline"
+        assert np.all(np.isfinite(curvature)), "No NaN or Inf in curvature"
+        
+        # Curvature should be very close to 0 (within numerical precision)
+        max_curvature = np.max(np.abs(curvature))
+        assert max_curvature < 1e-6, f"Straight line curvature {max_curvature} should be ≈ 0"
+    
+    def test_perfect_circle_constant_curvature(self):
+        """Test that a perfect circle has constant curvature κ = 1/R."""
+        # Create circular track: radius 500m
+        radius = 500.0
+        num_points = 1000
+        angles = np.linspace(0, 2 * np.pi, num_points)
+        
+        x = radius * np.cos(angles)
+        z = radius * np.sin(angles)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Validate results
+        assert len(curvature) == num_points, "Curvature length matches centerline"
+        assert np.all(np.isfinite(curvature)), "No NaN or Inf in curvature"
+        
+        # Expected curvature: κ = 1/R = 1/500 = 0.002
+        expected_curvature = 1.0 / radius
+        mean_curvature = np.mean(curvature)
+        std_curvature = np.std(curvature)
+        
+        # Mean curvature should match expected (within 1%)
+        assert abs(mean_curvature - expected_curvature) / expected_curvature < 0.01, \
+            f"Mean curvature {mean_curvature} deviates >1% from expected {expected_curvature}"
+        
+        # Curvature should be relatively constant (low std deviation)
+        assert std_curvature / mean_curvature < 0.05, \
+            f"Curvature std {std_curvature} too high for constant circle"
+    
+    def test_hairpin_high_curvature(self):
+        """Test that a tight hairpin has high curvature κ > 0.05."""
+        # Create hairpin: 180° turn with small radius (15m)
+        radius = 15.0
+        num_points = 100
+        angles = np.linspace(0, np.pi, num_points)  # Half circle
+        
+        x = radius * np.cos(angles)
+        z = radius * np.sin(angles)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Validate results
+        assert np.all(np.isfinite(curvature)), "No NaN or Inf in curvature"
+        
+        # Expected curvature: κ = 1/15 ≈ 0.0667
+        expected_curvature = 1.0 / radius
+        mean_curvature = np.mean(curvature)
+        
+        # Curvature should be high (>0.05 for hairpin)
+        assert mean_curvature > 0.05, \
+            f"Hairpin curvature {mean_curvature} should be > 0.05"
+        
+        # Should match expected curvature (within 5%)
+        assert abs(mean_curvature - expected_curvature) / expected_curvature < 0.05, \
+            f"Hairpin curvature {mean_curvature} deviates from expected {expected_curvature}"
+    
+    def test_fast_corner_low_curvature(self):
+        """Test that a fast corner has low curvature κ < 0.01."""
+        # Create fast corner: large radius (150m)
+        radius = 150.0
+        num_points = 100
+        angles = np.linspace(0, np.pi / 3, num_points)  # 60° turn
+        
+        x = radius * np.cos(angles)
+        z = radius * np.sin(angles)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Validate results
+        assert np.all(np.isfinite(curvature)), "No NaN or Inf in curvature"
+        
+        # Expected curvature: κ = 1/150 ≈ 0.00667
+        expected_curvature = 1.0 / radius
+        mean_curvature = np.mean(curvature)
+        
+        # Curvature should be low (<0.01 for fast corner)
+        assert mean_curvature < 0.01, \
+            f"Fast corner curvature {mean_curvature} should be < 0.01"
+        
+        # Should match expected curvature (within 5%)
+        assert abs(mean_curvature - expected_curvature) / expected_curvature < 0.05, \
+            f"Fast corner curvature {mean_curvature} deviates from expected {expected_curvature}"
+    
+    def test_s_curve_alternating_curvature(self):
+        """Test S-curve has alternating positive curvature."""
+        # Create S-curve: two opposing curves
+        num_points = 500
+        progress = np.linspace(0, 1, num_points)
+        
+        x = progress * 1000.0  # Linear progression
+        z = 200.0 * np.sin(progress * 4 * np.pi)  # Two complete sine waves
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Validate results
+        assert np.all(np.isfinite(curvature)), "No NaN or Inf in curvature"
+        assert len(curvature) == num_points, "Curvature length matches"
+        
+        # Curvature should all be non-negative (absolute value in formula)
+        assert np.all(curvature >= 0), "Curvature should be non-negative"
+        
+        # Should have regions of high curvature (curves) and low curvature (transitions)
+        max_curvature = np.max(curvature)
+        min_curvature = np.min(curvature)
+        
+        assert max_curvature > 0.001, "S-curve should have curved sections"
+        assert min_curvature < max_curvature / 2, "S-curve should have varying curvature"
+    
+    def test_curvature_smoothing_reduces_noise(self):
+        """Test that smoothing reduces noise in curvature signal."""
+        # Create circle with added noise
+        radius = 500.0
+        num_points = 500
+        angles = np.linspace(0, 2 * np.pi, num_points)
+        
+        # Add noise to positions
+        noise_magnitude = 5.0  # ±5m noise
+        x = radius * np.cos(angles) + np.random.uniform(-noise_magnitude, noise_magnitude, num_points)
+        z = radius * np.sin(angles) + np.random.uniform(-noise_magnitude, noise_magnitude, num_points)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature with and without smoothing
+        curvature_unsmoothed = self.reconstructor.compute_curvature(
+            centerline, distances, smooth=False
+        )
+        curvature_smoothed = self.reconstructor.compute_curvature(
+            centerline, distances, smooth=True
+        )
+        
+        # Validate results
+        assert np.all(np.isfinite(curvature_unsmoothed)), "No NaN in unsmoothed"
+        assert np.all(np.isfinite(curvature_smoothed)), "No NaN in smoothed"
+        
+        # Smoothed curvature should have lower std deviation (less noisy)
+        std_unsmoothed = np.std(curvature_unsmoothed)
+        std_smoothed = np.std(curvature_smoothed)
+        
+        assert std_smoothed < std_unsmoothed, \
+            f"Smoothed std {std_smoothed} should be < unsmoothed std {std_unsmoothed}"
+    
+    def test_insufficient_points_raises_error(self):
+        """Test that < 3 points raises ValueError."""
+        # Create centerline with only 2 points
+        centerline = np.array([[0, 0], [100, 0]])
+        distances = np.array([0, 100])
+        
+        with pytest.raises(ValueError, match="Need at least 3 points"):
+            self.reconstructor.compute_curvature(centerline, distances)
+    
+    def test_mismatched_lengths_raises_error(self):
+        """Test that mismatched centerline and distances raises ValueError."""
+        centerline = np.array([[0, 0], [50, 0], [100, 0]])
+        distances = np.array([0, 50])  # Wrong length
+        
+        with pytest.raises(ValueError, match="centerline length"):
+            self.reconstructor.compute_curvature(centerline, distances)
+    
+    def test_no_numerical_instability(self):
+        """Test that curvature computation has no NaN or Inf values."""
+        # Create track with various features
+        num_points = 1000
+        progress = np.linspace(0, 1, num_points)
+        
+        # Mix of straight, curves, and sharp turns
+        x = progress * 2000.0
+        z = 100.0 * np.sin(progress * 8 * np.pi) + 50.0 * np.sin(progress * 20 * np.pi)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Validate: absolutely no NaN or Inf
+        assert np.all(np.isfinite(curvature)), "Curvature must have no NaN or Inf"
+        assert not np.any(np.isnan(curvature)), "No NaN values allowed"
+        assert not np.any(np.isinf(curvature)), "No Inf values allowed"
+    
+    def test_monza_parabolica_high_speed_corner(self):
+        """Test Monza Parabolica-like high-speed corner (κ ≈ 0.008)."""
+        # Monza Parabolica: ~130m radius, high-speed corner
+        radius = 130.0
+        num_points = 150
+        angles = np.linspace(0, np.pi / 2, num_points)  # 90° turn
+        
+        x = radius * np.cos(angles)
+        z = radius * np.sin(angles)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Expected curvature: κ = 1/130 ≈ 0.0077
+        expected_curvature = 1.0 / radius
+        mean_curvature = np.mean(curvature)
+        
+        # Validate: high-speed corner (0.005 < κ < 0.01)
+        assert 0.005 < mean_curvature < 0.01, \
+            f"Monza Parabolica curvature {mean_curvature} outside expected range"
+        
+        # Should match expected (within 10%)
+        assert abs(mean_curvature - expected_curvature) / expected_curvature < 0.10, \
+            f"Parabolica curvature {mean_curvature} deviates from expected {expected_curvature}"
+    
+    def test_silverstone_copse_fast_corner(self):
+        """Test Silverstone Copse-like fast corner (κ ≈ 0.01)."""
+        # Silverstone Copse: ~100m radius, fast corner
+        radius = 100.0
+        num_points = 120
+        angles = np.linspace(0, np.pi / 3, num_points)  # 60° turn
+        
+        x = radius * np.cos(angles)
+        z = radius * np.sin(angles)
+        centerline = np.column_stack([x, z])
+        
+        # Compute distances
+        distances = self.reconstructor._compute_cumulative_distance(centerline)
+        
+        # Compute curvature
+        curvature = self.reconstructor.compute_curvature(centerline, distances)
+        
+        # Expected curvature: κ = 1/100 = 0.01
+        expected_curvature = 1.0 / radius
+        mean_curvature = np.mean(curvature)
+        
+        # Validate: fast corner (κ ≈ 0.01)
+        assert 0.008 < mean_curvature < 0.012, \
+            f"Silverstone Copse curvature {mean_curvature} outside expected range"
+        
+        # Should match expected (within 10%)
+        assert abs(mean_curvature - expected_curvature) / expected_curvature < 0.10, \
+            f"Copse curvature {mean_curvature} deviates from expected {expected_curvature}"
