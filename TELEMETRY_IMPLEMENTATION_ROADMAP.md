@@ -20,12 +20,7 @@ The implementation follows a **bottom-up approach** respecting Clean Architectur
 
 ### Priority Order:
 
-1. **#32 - Create TelemetrySample Value Object**
-   - Foundation for all telemetry data
-   - No dependencies
-   - **Start here**
-
-2. **#33 - Create CarSetupSnapshot Entity**
+1. **#33 - Create CarSetupSnapshot Entity**
    - Independent entity
    - No dependencies on other domain objects
 
