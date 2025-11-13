@@ -729,3 +729,398 @@ class TestTrackReconstructorCurvature:
         # Should match expected (within 10%)
         assert abs(mean_curvature - expected_curvature) / expected_curvature < 0.10, \
             f"Copse curvature {mean_curvature} deviates from expected {expected_curvature}"
+
+
+class TestTrackReconstructorElevation:
+    """Test suite for elevation profile extraction."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.reconstructor = TrackReconstructor()
+    
+    def _create_sample(
+        self,
+        x: float,
+        y: float,
+        z: float,
+        lap_distance: float,
+        lap_number: int = 1
+    ) -> TelemetrySample:
+        """Helper to create TelemetrySample with position data."""
+        return TelemetrySample(
+            timestamp_ms=0,
+            world_position_x=x,
+            world_position_y=y,
+            world_position_z=z,
+            world_velocity_x=0.0,
+            world_velocity_y=0.0,
+            world_velocity_z=0.0,
+            g_force_lateral=0.0,
+            g_force_longitudinal=0.0,
+            yaw=0.0,
+            speed=100.0,
+            throttle=1.0,
+            steer=0.0,
+            brake=0.0,
+            gear=5,
+            engine_rpm=8000,
+            drs=0,
+            lap_distance=lap_distance,
+            lap_number=lap_number
+        )
+    
+    def test_flat_track_constant_elevation(self):
+        """Test that a flat track has constant elevation h ≈ 100m."""
+        track_length = 5000.0
+        num_samples = 500
+        base_elevation = 100.0
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=base_elevation,  # Constant elevation
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert len(elevation) > 0, "Elevation profile should have points"
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Mean elevation should be close to base elevation
+        mean_elevation = np.mean(elevation)
+        assert abs(mean_elevation - base_elevation) < 1.0, \
+            f"Mean elevation {mean_elevation} deviates >1m from {base_elevation}"
+        
+        # Standard deviation should be small (flat track)
+        std_elevation = np.std(elevation)
+        assert std_elevation < 1.0, \
+            f"Elevation std {std_elevation} too high for flat track"
+    
+    def test_linear_ramp_uphill(self):
+        """Test linear uphill ramp: h = base + slope * distance."""
+        track_length = 5000.0
+        num_samples = 500
+        base_elevation = 100.0
+        slope = 0.05  # 5% gradient (5m rise per 100m)
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            # Linear ramp: h = base + slope * distance
+            elevation_y = base_elevation + slope * lap_distance
+            
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=elevation_y,
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert len(elevation) > 0, "Elevation profile should have points"
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Should be monotonically increasing (uphill)
+        elevation_diffs = np.diff(elevation)
+        assert np.mean(elevation_diffs) > 0, "Elevation should increase (uphill)"
+        
+        # Check slope: dh/ds ≈ 0.05
+        distances = np.linspace(0, track_length, len(elevation))
+        computed_slope = (elevation[-1] - elevation[0]) / (distances[-1] - distances[0])
+        
+        assert abs(computed_slope - slope) / slope < 0.10, \
+            f"Computed slope {computed_slope} deviates >10% from expected {slope}"
+    
+    def test_sine_wave_elevation(self):
+        """Test sine wave elevation: h = A * sin(2π * progress)."""
+        track_length = 5000.0
+        num_samples = 1000
+        base_elevation = 500.0
+        amplitude = 50.0  # ±50m variation
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            # Sine wave: one complete cycle
+            elevation_y = base_elevation + amplitude * np.sin(2 * np.pi * progress)
+            
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=elevation_y,
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert len(elevation) > 0, "Elevation profile should have points"
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Mean should be close to base elevation
+        mean_elevation = np.mean(elevation)
+        assert abs(mean_elevation - base_elevation) < 5.0, \
+            f"Mean elevation {mean_elevation} deviates from base {base_elevation}"
+        
+        # Should have variation (not flat)
+        elevation_range = np.max(elevation) - np.min(elevation)
+        assert elevation_range > amplitude * 0.8, \
+            f"Elevation range {elevation_range} too small for amplitude {amplitude}"
+    
+    def test_outliers_filtered_by_median(self):
+        """Test that elevation outliers (sensor errors) are filtered."""
+        track_length = 5000.0
+        num_samples = 500
+        num_outliers = 50  # 10% outliers
+        base_elevation = 200.0
+        
+        samples = []
+        outlier_indices = set(np.random.choice(num_samples, num_outliers, replace=False))
+        
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            
+            if i in outlier_indices:
+                # Outlier: large altitude jump (sensor error)
+                elevation_y = base_elevation + np.random.uniform(-100, 100)
+            else:
+                # Normal elevation
+                elevation_y = base_elevation
+            
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=elevation_y,
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation (should filter outliers)
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Mean should be close to base (outliers filtered)
+        mean_elevation = np.mean(elevation)
+        assert abs(mean_elevation - base_elevation) < 10.0, \
+            f"Mean elevation {mean_elevation} indicates outliers not filtered properly"
+        
+        # Std should be reasonable (not affected by outliers)
+        std_elevation = np.std(elevation)
+        assert std_elevation < 20.0, \
+            f"Elevation std {std_elevation} indicates outliers not filtered"
+    
+    def test_interpolation_handles_gaps(self):
+        """Test that gaps in coverage are interpolated."""
+        track_length = 5000.0
+        num_samples = 300
+        base_elevation = 150.0
+        
+        samples = []
+        # Create samples with a gap in the middle (simulate GPS loss)
+        for i in range(num_samples):
+            progress = i / num_samples
+            
+            # Skip middle 20% (gap)
+            if 0.4 < progress < 0.6:
+                continue
+            
+            lap_distance = progress * track_length
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=base_elevation,
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation (should interpolate gap)
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert len(elevation) > 0, "Elevation profile should have points"
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Mean should still be reasonable (interpolation maintains level)
+        mean_elevation = np.mean(elevation)
+        assert abs(mean_elevation - base_elevation) < 5.0, \
+            f"Mean elevation {mean_elevation} deviates after interpolation"
+    
+    def test_smoothing_reduces_noise(self):
+        """Test that smoothing reduces noise in elevation signal."""
+        track_length = 5000.0
+        num_samples = 500
+        base_elevation = 300.0
+        noise_magnitude = 2.0  # ±2m noise
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            # Add random noise
+            elevation_y = base_elevation + np.random.uniform(-noise_magnitude, noise_magnitude)
+            
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=elevation_y,
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation with and without smoothing
+        elevation_unsmoothed = self.reconstructor.compute_elevation(
+            samples, track_length, smooth=False
+        )
+        elevation_smoothed = self.reconstructor.compute_elevation(
+            samples, track_length, smooth=True
+        )
+        
+        # Validate results
+        assert np.all(np.isfinite(elevation_unsmoothed)), "No NaN in unsmoothed"
+        assert np.all(np.isfinite(elevation_smoothed)), "No NaN in smoothed"
+        
+        # Smoothed should have lower std (less noisy)
+        std_unsmoothed = np.std(elevation_unsmoothed)
+        std_smoothed = np.std(elevation_smoothed)
+        
+        assert std_smoothed < std_unsmoothed, \
+            f"Smoothed std {std_smoothed} should be < unsmoothed std {std_unsmoothed}"
+    
+    def test_insufficient_samples_raises_error(self):
+        """Test that insufficient samples raise ValueError."""
+        track_length = 5000.0
+        samples = []
+        
+        # Create only 50 samples (below threshold)
+        for i in range(50):
+            progress = i / 50
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=100.0,
+                z=0.0,
+                lap_distance=progress * track_length
+            ))
+        
+        with pytest.raises(ValueError, match="Insufficient samples"):
+            self.reconstructor.compute_elevation(samples, track_length)
+    
+    def test_spa_eau_rouge_uphill(self):
+        """Test Spa Eau Rouge-like uphill section (steep gradient)."""
+        # Eau Rouge: ~40m elevation gain over ~300m distance
+        track_length = 7004.0  # Spa-Francorchamps length
+        num_samples = 500
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            
+            # Simulate Eau Rouge: steep uphill at 20-25% of lap
+            if 0.20 <= progress <= 0.25:
+                # Steep gradient: ~40m over ~350m
+                eau_rouge_progress = (progress - 0.20) / 0.05
+                elevation_y = 400.0 + 40.0 * eau_rouge_progress
+            elif progress < 0.20:
+                elevation_y = 400.0
+            else:
+                elevation_y = 440.0
+            
+            samples.append(self._create_sample(
+                x=progress * 6000.0,
+                y=elevation_y,
+                z=progress * 1000.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Should have significant elevation change
+        elevation_range = np.max(elevation) - np.min(elevation)
+        assert elevation_range > 30.0, \
+            f"Elevation range {elevation_range} too small for Spa Eau Rouge"
+    
+    def test_cota_turn1_steep_uphill(self):
+        """Test COTA Turn 1-like steep uphill section."""
+        # COTA Turn 1: significant uphill climb
+        track_length = 5513.0  # Circuit of the Americas length
+        num_samples = 500
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            
+            # Simulate Turn 1: steep uphill at start
+            if progress <= 0.05:
+                # Steep gradient at start
+                elevation_y = 200.0 + 20.0 * (progress / 0.05)
+            else:
+                elevation_y = 220.0
+            
+            samples.append(self._create_sample(
+                x=progress * 4500.0,
+                y=elevation_y,
+                z=progress * 500.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Validate results
+        assert np.all(np.isfinite(elevation)), "No NaN or Inf in elevation"
+        
+        # Should have uphill gradient at start
+        # Check first 10% of profile
+        early_profile = elevation[:len(elevation)//10]
+        assert np.mean(np.diff(early_profile)) > 0, \
+            "COTA Turn 1 should have positive gradient (uphill)"
+    
+    def test_compute_slope_gradient(self):
+        """Test computing slope dh/ds from elevation profile."""
+        track_length = 5000.0
+        num_samples = 500
+        slope_value = 0.03  # 3% gradient
+        
+        samples = []
+        for i in range(num_samples):
+            progress = i / num_samples
+            lap_distance = progress * track_length
+            # Linear ramp
+            elevation_y = 100.0 + slope_value * lap_distance
+            
+            samples.append(self._create_sample(
+                x=progress * 4000.0,
+                y=elevation_y,
+                z=0.0,
+                lap_distance=lap_distance
+            ))
+        
+        # Extract elevation
+        elevation = self.reconstructor.compute_elevation(samples, track_length)
+        
+        # Compute slope: dh/ds using gradient
+        distances = np.linspace(0, track_length, len(elevation))
+        slope = np.gradient(elevation, distances)
+        
+        # Validate slope
+        mean_slope = np.mean(slope)
+        assert abs(mean_slope - slope_value) / slope_value < 0.10, \
+            f"Computed slope {mean_slope} deviates >10% from expected {slope_value}"
