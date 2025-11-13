@@ -184,7 +184,6 @@ class LapCommands(commands.Cog):
                 embed.add_field(
                     name="🚀 Fastest Sectors",
                     value="\n".join(sector_lines) + f"\n**Total:** `{fastest_time_str}`",
-                           f"**Total:** `{fastest_time_str}`"),
                     inline=False
                 )
 
