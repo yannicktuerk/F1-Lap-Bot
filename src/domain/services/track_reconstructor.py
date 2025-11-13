@@ -37,6 +37,11 @@ class TrackReconstructor:
     CURVATURE_SMOOTH_WINDOW_DIVISOR = 20  # Window = len // 20 * 2 + 1
     CURVATURE_SMOOTH_POLY_ORDER = 2  # Polynomial order for curvature smoothing
     
+    # Elevation profile constants
+    ELEVATION_BINS = 1000  # Number of bins for elevation extraction
+    ELEVATION_SMOOTH_WINDOW_DIVISOR = 20  # Window = len // 20 * 2 + 1
+    ELEVATION_SMOOTH_POLY_ORDER = 2  # Polynomial order for elevation smoothing
+    
     def compute_centerline(
         self,
         samples: List[TelemetrySample],
@@ -263,6 +268,132 @@ class TrackReconstructor:
                 )
         
         return curvature
+    
+    def compute_elevation(
+        self,
+        samples: List[TelemetrySample],
+        track_length_m: float,
+        smooth: bool = True
+    ) -> np.ndarray:
+        """Extract elevation profile h(s) from telemetry samples.
+        
+        Elevation is extracted from world_position_y values, which represent
+        altitude/height above ground level in F1 25 telemetry. The profile
+        is binned by lap distance and smoothed to remove sensor noise.
+        
+        Physical interpretation:
+        - h(s): Height in meters at distance s along track
+        - dh/ds: Track gradient (slope)
+        - Positive slope: Uphill section
+        - Negative slope: Downhill section
+        
+        Edge cases handled:
+        - Missing Y data (GPS loss): Interpolation from neighbors
+        - Altitude jumps (sensor errors): Median filtering for outliers
+        - Banking/camber vs actual elevation: Averaged across racing line
+        
+        Args:
+            samples: List of TelemetrySample with position data.
+            track_length_m: Track length in meters for normalization.
+            smooth: If True, apply Savitzky-Golay smoothing.
+            
+        Returns:
+            N-element array of elevation values (meters) ordered by distance.
+            
+        Raises:
+            ValueError: If samples < MIN_SAMPLES_REQUIRED (100).
+            ValueError: If track_length_m <= 0.
+        """
+        # Validate inputs
+        if len(samples) < self.MIN_SAMPLES_REQUIRED:
+            raise ValueError(
+                f"Insufficient samples for elevation extraction: "
+                f"got {len(samples)}, need at least {self.MIN_SAMPLES_REQUIRED}"
+            )
+        
+        if track_length_m <= 0:
+            raise ValueError(
+                f"track_length_m must be positive, got {track_length_m}"
+            )
+        
+        # Extract elevation (Y) and lap distance data
+        elevations_y = np.array([s.world_position_y for s in samples])
+        lap_distances = np.array([s.lap_distance for s in samples])
+        
+        # Normalize lap progress to [0, 1]
+        normalized_progress = lap_distances / track_length_m
+        
+        # Create spatial bins along normalized lap progress
+        bin_edges = np.linspace(0, 1, self.ELEVATION_BINS + 1)
+        bin_indices = np.digitize(normalized_progress, bin_edges) - 1
+        
+        # Clamp bin indices to valid range [0, ELEVATION_BINS-1]
+        bin_indices = np.clip(bin_indices, 0, self.ELEVATION_BINS - 1)
+        
+        # Compute median elevation for each bin (robust to outliers)
+        elevation_profile = []
+        bin_centers = []
+        
+        for bin_idx in range(self.ELEVATION_BINS):
+            # Find all samples in this bin
+            mask = bin_indices == bin_idx
+            
+            if np.sum(mask) == 0:
+                # No samples in this bin, will interpolate later
+                continue
+            
+            # Compute median elevation (more robust than mean)
+            # Handles outliers from sensor errors or banking/camber effects
+            median_elevation = np.median(elevations_y[mask])
+            
+            elevation_profile.append(median_elevation)
+            bin_centers.append((bin_edges[bin_idx] + bin_edges[bin_idx + 1]) / 2)
+        
+        # Convert to numpy arrays
+        elevation_profile = np.array(elevation_profile)
+        bin_centers = np.array(bin_centers)
+        
+        # Sort by lap progression order
+        sort_indices = np.argsort(bin_centers)
+        elevation_profile = elevation_profile[sort_indices]
+        
+        # Interpolate missing bins (GPS loss, gaps in coverage)
+        # If there are bins without samples, interpolate from neighbors
+        if len(elevation_profile) < self.ELEVATION_BINS:
+            # Create full distance array
+            full_distances = np.linspace(0, 1, self.ELEVATION_BINS)
+            # Interpolate missing values
+            elevation_profile = np.interp(
+                full_distances,
+                bin_centers[sort_indices],
+                elevation_profile
+            )
+        
+        # Optional: smooth elevation signal with Savitzky-Golay filter
+        if smooth and len(elevation_profile) > 5:
+            # Window size: adaptive based on profile length
+            window_length = min(
+                21,
+                len(elevation_profile) // self.ELEVATION_SMOOTH_WINDOW_DIVISOR * 2 + 1
+            )
+            
+            # Ensure window is odd and at least 5
+            window_length = max(5, window_length)
+            if window_length % 2 == 0:
+                window_length += 1
+            
+            # Ensure window doesn't exceed array length
+            window_length = min(window_length, len(elevation_profile))
+            
+            # Apply smoothing if window is large enough
+            if window_length > self.ELEVATION_SMOOTH_POLY_ORDER:
+                elevation_profile = savgol_filter(
+                    elevation_profile,
+                    window_length,
+                    self.ELEVATION_SMOOTH_POLY_ORDER
+                )
+        
+        return elevation_profile
     
     def _compute_cumulative_distance(self, centerline: np.ndarray) -> np.ndarray:
         """Compute cumulative Euclidean distance along centerline.
