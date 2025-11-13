@@ -7,6 +7,7 @@ from typing import Optional
 from ...domain.value_objects.track_name import TrackName
 from ...domain.value_objects.time_format import TimeFormat
 from .embed_builder import EmbedBuilder, MEDALS, SKILL_EMOJIS, SKILL_COLORS
+from .analytics_service import AnalyticsService
 
 
 class LapCommands(commands.Cog):
@@ -15,6 +16,7 @@ class LapCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.embed_builder = EmbedBuilder()
+        self.analytics = AnalyticsService()
     
     def _format_time_seconds(self, total_seconds: float) -> str:
         """Format seconds to MM:SS.mmm or SS.mmm format."""
@@ -1085,19 +1087,19 @@ class LapCommands(commands.Cog):
                 color=discord.Color.from_rgb(255, 20, 147)  # Hot pink for analytics
             )
             
+            # Aggregate user performance data once
+            user_performance = self.analytics.aggregate_user_performance(all_times)
+            
             # 🏆 Hall of Fame - Most dominant drivers
-            track_leaders = {}
-            for track_key, data in track_data.items():
-                leader = data['best'].username
-                track_leaders[leader] = track_leaders.get(leader, 0) + 1
+            track_leaders = self.analytics.calculate_track_leaders(track_data)
             
             if track_leaders:
                 sorted_leaders = sorted(track_leaders.items(), key=lambda x: x[1], reverse=True)[:5]
-                hall_of_fame = ""
-                medals = ["👑", "🥇", "🥈", "🥉", "🏅"]
-                for i, (driver, count) in enumerate(sorted_leaders):
-                    medal = medals[i] if i < len(medals) else "🎖️"
-                    hall_of_fame += f"{medal} **{driver}** - {count} track records\n"
+                hall_of_fame_medals = ["👑", "🥇", "🥈", "🥉", "🏅"]
+                hall_of_fame = "\n".join(
+                    f"{hall_of_fame_medals[i] if i < len(hall_of_fame_medals) else '🎖️'} **{driver}** - {count} track records"
+                    for i, (driver, count) in enumerate(sorted_leaders)
+                )
                 
                 embed.add_field(
                     name="👑 Hall of Fame",
@@ -1106,10 +1108,11 @@ class LapCommands(commands.Cog):
                 )
             
             # 🚀 Speed Demons - Fastest overall times
-            fastest_times = sorted(all_times, key=lambda x: x.time_format.total_seconds)[:5]
-            speed_demons = ""
-            for i, time in enumerate(fastest_times):
-                speed_demons += f"🚀 **{time.track_name.short_name}** - {time.username} `{time.time_format}`\n"
+            fastest_times = self.analytics.get_fastest_times(all_times, 5)
+            speed_demons = "\n".join(
+                f"🚀 **{time.track_name.short_name}** - {time.username} `{time.time_format}`"
+                for time in fastest_times
+            )
             
             embed.add_field(
                 name="🚀 Speed Demons",
@@ -1118,45 +1121,29 @@ class LapCommands(commands.Cog):
             )
             
             # 📈 Track Difficulty Analysis
-            if len(track_data) > 0:
-                # Calculate track difficulty based on average times and spread
-                track_difficulty = []
-                for track_key, data in track_data.items():
-                    if data['count'] >= 3:  # Need at least 3 times for meaningful stats
-                        times = [t.time_format.total_seconds for t in data['times']]
-                        std_dev = statistics.stdev(times) if len(times) > 1 else 0
-                        difficulty_score = data['avg'] + (std_dev * 2)  # Higher = more difficult/inconsistent
-                        track_difficulty.append((track_key, difficulty_score, data['avg']))
+            track_difficulty = self.analytics.calculate_track_difficulty(track_data, min_laps=3)
+            
+            if track_difficulty:
+                difficulty_icons = ["💀", "🔥", "⚡", "🌪️", "💥"]
+                hardest_tracks = "\n".join(
+                    f"{difficulty_icons[i] if i < len(difficulty_icons) else '🎯'} **{TrackName(track_key).short_name}** - Avg: `{self._format_time_seconds(avg)}`"
+                    for i, (track_key, _, avg) in enumerate(track_difficulty[:5])
+                )
                 
-                if track_difficulty:
-                    track_difficulty.sort(key=lambda x: x[1], reverse=True)
-                    hardest_tracks = ""
-                    difficulty_icons = ["💀", "🔥", "⚡", "🌪️", "💥"]
-                    for i, (track_key, score, avg) in enumerate(track_difficulty[:5]):
-                        track = TrackName(track_key)
-                        icon = difficulty_icons[i] if i < len(difficulty_icons) else "🎯"
-                        hardest_tracks += f"{icon} **{track.short_name}** - Avg: `{self._format_time_seconds(avg)}`\n"
-                    
-                    embed.add_field(
-                        name="💀 Hardest Tracks",
-                        value=hardest_tracks,
-                        inline=True
-                    )
+                embed.add_field(
+                    name="💀 Hardest Tracks",
+                    value=hardest_tracks,
+                    inline=True
+                )
             
             # 🎯 Consistency Kings - Most consistent drivers
-            consistency_data = []
-            for username, times in user_performance.items():
-                if len(times) >= 5:  # Need at least 5 times
-                    std_dev = statistics.stdev(times)
-                    avg_time = statistics.mean(times)
-                    consistency_score = 100 - (std_dev / avg_time * 100)  # Higher = more consistent
-                    consistency_data.append((username, consistency_score, len(times)))
+            consistency_data = self.analytics.calculate_consistency(user_performance, min_laps=5)
             
             if consistency_data:
-                consistency_data.sort(key=lambda x: x[1], reverse=True)
-                consistency_kings = ""
-                for i, (driver, score, count) in enumerate(consistency_data[:5]):
-                    consistency_kings += f"🎯 **{driver}** - {score:.1f}% ({count} laps)\n"
+                consistency_kings = "\n".join(
+                    f"🎯 **{driver}** - {score:.1f}% ({count} laps)"
+                    for driver, score, count in consistency_data[:5]
+                )
                 
                 embed.add_field(
                     name="🎯 Consistency Kings",
@@ -1165,13 +1152,12 @@ class LapCommands(commands.Cog):
                 )
             
             # 🏃‍♂️ Most Active Drivers
-            activity_data = [(username, len(times)) for username, times in user_performance.items()]
-            activity_data.sort(key=lambda x: x[1], reverse=True)
-            most_active = ""
+            activity_data = self.analytics.get_most_active_drivers(user_performance, limit=5)
             activity_icons = ["🏃‍♂️", "🚴‍♂️", "🏋️‍♂️", "🤾‍♂️", "🏊‍♂️"]
-            for i, (driver, count) in enumerate(activity_data[:5]):
-                icon = activity_icons[i] if i < len(activity_icons) else "🏃"
-                most_active += f"{icon} **{driver}** - {count} total laps\n"
+            most_active = "\n".join(
+                f"{activity_icons[i] if i < len(activity_icons) else '🏃'} **{driver}** - {count} total laps"
+                for i, (driver, count) in enumerate(activity_data)
+            )
             
             embed.add_field(
                 name="🏃‍♂️ Most Active",
@@ -1180,9 +1166,10 @@ class LapCommands(commands.Cog):
             )
             
             # 📊 Global Statistics Summary
+            import statistics
             total_unique_drivers = len(user_performance)
             total_laps = len(all_times)
-            tracks_with_times = len([k for k in all_track_keys if k in track_data])
+            tracks_with_times = len(track_data)
             overall_avg = statistics.mean([t.time_format.total_seconds for t in all_times])
             
             embed.add_field(
