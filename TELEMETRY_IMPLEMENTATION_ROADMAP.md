@@ -20,11 +20,7 @@ The implementation follows a **bottom-up approach** respecting Clean Architectur
 
 ### Priority Order:
 
-1. **#35 - Define TelemetryRepository Interface**
-   - Depends on: #32, #33, #34
-   - Domain layer contract for persistence
-
-5. **#36 - Implement SQLite Database Schema**
+1. **#36 - Implement SQLite Database Schema**
    - Can be done in parallel with domain modeling
    - Defines tables: sessions, lap_telemetry, car_setups, lap_metadata
 
