@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.presentation.bot.f1_bot import F1LapBot
 from src.presentation.api.telemetry_api import TelemetryAPI
 from src.infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
+from src.version import get_version, get_version_info
 
 
 def validate_environment() -> bool:
@@ -100,6 +101,13 @@ async def main():
     )
     
     try:
+        # Display version information
+        version_info = get_version_info()
+        version = version_info["version"]
+        print(f"\n🏎️  F1 Lap Time Bot {version}")
+        if version_info["is_development"]:
+            print("   Running in development mode")
+        print()
         print("🚀 Starting F1 Lap Time Bot with Telemetry API...")
         
         # Start HTTP API server first

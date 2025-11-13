@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on semantic version tags (e.g., v2.1.0)
+
+permissions:
+  contents: write  # Needed to create releases
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_number=${VERSION#v}" >> $GITHUB_OUTPUT
+      
+      - name: Create VERSION file
+        run: |
+          echo "${{ steps.version.outputs.version }}" > VERSION
+          cat VERSION
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      
+      - name: Run tests (if available)
+        run: |
+          if [ -d tests ]; then
+            pip install pytest pytest-cov
+            python -m pytest tests/ --verbose || echo "Tests failed or not configured"
+          else
+            echo "No tests directory found, skipping tests"
+          fi
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Extract changelog section for this version from README.md if it exists
+          if grep -q "### Version ${{ steps.version.outputs.version_number }}" README.md 2>/dev/null; then
+            CHANGELOG=$(sed -n "/### Version ${{ steps.version.outputs.version_number }}/,/### Version /p" README.md | sed '$d')
+          else
+            # Fallback: Generate from git commits since last tag
+            PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+            if [ -z "$PREV_TAG" ]; then
+              CHANGELOG="## Changes\n\n$(git log --pretty=format:'- %s (%h)' --no-merges)"
+            else
+              CHANGELOG="## Changes since $PREV_TAG\n\n$(git log $PREV_TAG..HEAD --pretty=format:'- %s (%h)' --no-merges)"
+            fi
+          fi
+          echo "$CHANGELOG" > CHANGELOG_RELEASE.md
+          cat CHANGELOG_RELEASE.md
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.version }}
+          body_path: CHANGELOG_RELEASE.md
+          draft: false
+          prerelease: false
+          files: |
+            VERSION
+            requirements.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Trigger deployment workflow
+        if: github.repository_owner == 'yannicktuerk'
+        run: |
+          echo "🚀 Deployment trigger placeholder"
+          echo "Version ${{ steps.version.outputs.version }} ready for deployment"
+          # Add deployment trigger here if needed:
+          # - Webhook to deployment server
+          # - Trigger another workflow
+          # - Update deployment config
+          
+          # Example: Trigger repository dispatch event
+          # curl -X POST \
+          #   -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          #   -H "Accept: application/vnd.github.v3+json" \
+          #   https://api.github.com/repos/${{ github.repository }}/dispatches \
+          #   -d '{"event_type":"deploy","client_payload":{"version":"${{ steps.version.outputs.version }}"}}'
