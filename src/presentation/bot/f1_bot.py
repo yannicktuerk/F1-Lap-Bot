@@ -5,8 +5,15 @@ import os
 from typing import Optional
 from ...infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
 from ...infrastructure.persistence.sqlite_driver_rating_repository import SQLiteDriverRatingRepository
+from ...infrastructure.persistence.sqlite_telemetry_repository import SQLiteTelemetryRepository
 from ...application.use_cases.submit_lap_time import SubmitLapTimeUseCase
 from ...application.use_cases.update_username import UpdateUsernameUseCase
+from ...application.use_cases.reconstruct_track import ReconstructTrackUseCase
+from ...application.use_cases.mathe_coach_analysis import MatheCoachAnalysisUseCase
+from ...domain.services.track_reconstructor import TrackReconstructor
+from ...domain.services.ideal_lap_constructor import IdealLapConstructor
+from ...domain.services.lap_comparator import LapComparator
+from ...domain.services.mathe_coach_feedback import MatheCoachFeedbackGenerator
 
 
 class F1LapBot(commands.Bot):
@@ -27,6 +34,8 @@ class F1LapBot(commands.Bot):
         # Dependencies (Clean Architecture)
         self.lap_time_repository = SQLiteLapTimeRepository()
         self.driver_rating_repository = SQLiteDriverRatingRepository()
+        self.telemetry_repository = SQLiteTelemetryRepository()
+        
         self.submit_lap_time_use_case = SubmitLapTimeUseCase(
             self.lap_time_repository, 
             self.driver_rating_repository
@@ -34,6 +43,25 @@ class F1LapBot(commands.Bot):
         self.update_username_use_case = UpdateUsernameUseCase(
             self.lap_time_repository,
             self.driver_rating_repository
+        )
+        
+        # Mathe-Coach dependencies (Phase 3)
+        track_reconstructor = TrackReconstructor()
+        reconstruct_track_use_case = ReconstructTrackUseCase(
+            self.telemetry_repository,
+            track_reconstructor
+        )
+        
+        ideal_lap_constructor = IdealLapConstructor()
+        lap_comparator = LapComparator()
+        feedback_generator = MatheCoachFeedbackGenerator(use_emojis=True)
+        
+        self.mathe_coach_use_case = MatheCoachAnalysisUseCase(
+            telemetry_repository=self.telemetry_repository,
+            reconstruct_track=reconstruct_track_use_case,
+            ideal_lap_constructor=ideal_lap_constructor,
+            lap_comparator=lap_comparator,
+            feedback_generator=feedback_generator
         )
         
         # Configuration

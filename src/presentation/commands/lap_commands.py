@@ -1963,6 +1963,107 @@ class LapCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
     
+    @app_commands.command(name="coach", description="🏎️ Get physics-based coaching feedback for your lap")
+    @app_commands.describe(
+        session_uid="Session ID (required - get from telemetry system)",
+        lap_number="Specific lap number to analyze (optional, defaults to latest lap)"
+    )
+    async def lap_coach(
+        self,
+        interaction: discord.Interaction,
+        session_uid: int,
+        lap_number: Optional[int] = None
+    ):
+        """Get physics-based coaching feedback from Mathe-Coach."""
+        await interaction.response.defer()
+        
+        try:
+            # Check if bot has mathe_coach_use_case (dependency injection)
+            if not hasattr(self.bot, 'mathe_coach_use_case'):
+                error_embed = discord.Embed(
+                    title="❌ Feature Not Available",
+                    description="The Mathe-Coach feature is not yet configured on this bot.\n\n"
+                               "This feature requires telemetry data from F1 25.",
+                    color=discord.Color.orange()
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+                return
+            
+            # Execute analysis use case
+            feedback_markdown = await self.bot.mathe_coach_use_case.execute(
+                session_uid=session_uid,
+                lap_number=lap_number
+            )
+            
+            # Create response embed
+            embed = discord.Embed(
+                title="🏎️ Lap Coaching Feedback",
+                description=feedback_markdown,
+                color=discord.Color.blue()
+            )
+            
+            # Add metadata footer
+            lap_info = f"Lap {lap_number}" if lap_number else "Latest lap"
+            embed.set_footer(
+                text=f"Session {session_uid} • {lap_info} • Based on physics model (Mathe-Coach)"
+            )
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            # Import application exceptions for specific error handling
+            from ...application.exceptions import (
+                SessionNotFoundError,
+                LapNotFoundError,
+                InsufficientDataError
+            )
+            
+            if isinstance(e, SessionNotFoundError):
+                error_embed = discord.Embed(
+                    title="❌ Session Not Found",
+                    description=f"No telemetry session found with ID `{session_uid}`.\n\n"
+                               "Make sure you've recorded telemetry data from F1 25 for this session.",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+            
+            elif isinstance(e, LapNotFoundError):
+                lap_info = f"lap number {lap_number}" if lap_number else "laps"
+                error_embed = discord.Embed(
+                    title="❌ No Telemetry Found",
+                    description=f"No telemetry found for {lap_info} in session `{session_uid}`.\n\n"
+                               "Ensure you've completed at least one lap with telemetry recording enabled.",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+            
+            elif isinstance(e, InsufficientDataError):
+                error_embed = discord.Embed(
+                    title="❌ Insufficient Data",
+                    description=f"{str(e)}\n\n"
+                               "Track reconstruction requires at least 3 complete laps with telemetry data.",
+                    color=discord.Color.orange()
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+            
+            else:
+                # Generic error for unexpected exceptions
+                print(f"❌ Error in /lap coach command: {e}")
+                error_embed = discord.Embed(
+                    title="❌ Analysis Failed",
+                    description="An error occurred while analyzing your lap.\n\n"
+                               "Please try again later or contact support if the issue persists.",
+                    color=discord.Color.red()
+                )
+                error_embed.add_field(
+                    name="🔧 Troubleshooting",
+                    value="• Ensure telemetry recording is enabled in F1 25\n"
+                          "• Verify you've completed at least 3 laps in the session\n"
+                          "• Check that the session ID is correct",
+                    inline=False
+                )
+                await interaction.followup.send(embed=error_embed, ephemeral=True)
+    
     @app_commands.command(name="reset", description="🗑️ Reset all lap times and data (Admin only)")
     @app_commands.describe(password="Security password required for database reset")
     @app_commands.checks.has_permissions(administrator=True)
@@ -2368,6 +2469,7 @@ async def setup(bot):
         lap_group.add_command(cog.show_version)
         lap_group.add_command(cog.show_help)
         lap_group.add_command(cog.init_leaderboard)
+        lap_group.add_command(cog.lap_coach)
         lap_group.add_command(cog.reset_database)
         
         bot.tree.add_command(lap_group)
