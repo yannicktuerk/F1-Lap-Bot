@@ -92,3 +92,23 @@ class InvalidTrackDataError(Exception):
         if message is None:
             message = f"Invalid track data: {field} = {value}"
         super().__init__(message)
+
+
+class LapNotFoundError(Exception):
+    """Raised when a requested lap does not exist in the telemetry database.
+    
+    This typically occurs when:
+    - User requests analysis for a non-existent lap number
+    - No laps recorded yet in the session
+    - Lap was deleted or invalidated
+    
+    Args:
+        message: Error message describing which lap was not found.
+    
+    Example:
+        >>> raise LapNotFoundError("No lap found for session 12345")
+        LapNotFoundError: No lap found for session 12345
+    """
+    
+    def __init__(self, message: str):
+        super().__init__(message)
