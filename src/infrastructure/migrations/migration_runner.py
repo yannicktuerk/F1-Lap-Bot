@@ -211,6 +211,17 @@ class MigrationRunner:
                 
                 logger.info(f"Migration {version} applied successfully")
             
+            except aiosqlite.OperationalError as e:
+                # Handle idempotent migrations (e.g., duplicate column errors)
+                error_msg = str(e).lower()
+                if "duplicate column" in error_msg:
+                    logger.warning(f"Migration {version} already applied (duplicate column detected), skipping")
+                    # Migration already applied, this is fine
+                    return
+                else:
+                    logger.error(f"Migration {version} failed: {e}")
+                    raise
+            
             except Exception as e:
                 logger.error(f"Migration {version} failed: {e}")
                 # Transaction automatically rolled back on exception

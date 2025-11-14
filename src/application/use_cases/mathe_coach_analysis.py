@@ -104,63 +104,74 @@ class MatheCoachAnalysisUseCase:
     
     async def execute(
         self,
-        session_uid: int,
+        session_uid: Optional[int] = None,
+        user_id: Optional[str] = None,
+        track_id: Optional[str] = None,
         lap_number: Optional[int] = None
     ) -> str:
         """Generate physics-based coaching feedback for a lap.
         
         Performs the following steps:
-        1. Reconstruct track profile from session telemetry
-        2. Fetch driver's lap (latest or specific lap number)
-        3. Construct ideal lap using physics model
-        4. Compare driver lap against ideal to identify errors
-        5. Generate human-readable Markdown coaching feedback
+        1. Resolve session UID from parameters (fallback logic)
+        2. Reconstruct track profile from session telemetry
+        3. Fetch driver's lap (latest or specific lap number)
+        4. Construct ideal lap using physics model
+        5. Compare driver lap against ideal to identify errors
+        6. Generate human-readable Markdown coaching feedback
         
         Args:
-            session_uid: F1 25 session unique identifier.
+            session_uid: Optional F1 25 session unique identifier.
+            user_id: Optional Discord user ID (for automatic session lookup).
+            track_id: Optional track filter (used with user_id).
             lap_number: Optional specific lap number to analyze.
-                If None, analyzes the most recent lap in the session.
+        
+        Session Resolution Logic (in priority order):
+        1. If session_uid provided → use directly
+        2. If user_id + track_id → use latest user session on that track
+        3. If user_id only → use latest user session (any track)
+        4. Otherwise → raise error
         
         Returns:
-            Markdown-formatted coaching feedback string containing:
-            - Track name and lap information
-            - Total time loss vs ideal
-            - Top improvement areas with specific advice
-            - Physics principles explanation
-            - Summary recommendation
+            Markdown-formatted coaching feedback string.
         
         Raises:
             SessionNotFoundError: If session with given UID does not exist.
             LapNotFoundError: If no lap found (or specified lap_number not found).
             InsufficientDataError: If track reconstruction fails (< 3 laps).
             InvalidTrackDataError: If track data is invalid.
+            ValueError: If no session resolution parameters provided.
         
         Performance:
             Typical execution time: < 3 seconds for a complete analysis
         
-        Example:
-            >>> # Analyze latest lap
+        Examples:
+            >>> # Direct session
             >>> feedback = await use_case.execute(session_uid=12345)
             >>> 
-            >>> # Analyze specific lap
-            >>> feedback = await use_case.execute(
-            ...     session_uid=12345,
-            ...     lap_number=5
-            ... )
+            >>> # User's latest session on Monaco
+            >>> feedback = await use_case.execute(user_id="123", track_id="monaco")
+            >>> 
+            >>> # User's latest session (any track)
+            >>> feedback = await use_case.execute(user_id="123")
         """
+        # Step 0: Resolve session_uid from parameters
+        resolved_session_uid = await self._resolve_session_uid(
+            session_uid, user_id, track_id
+        )
+        
         # Step 1: Reconstruct track profile
-        track_profile = await self._reconstruct_track.execute(session_uid)
+        track_profile = await self._reconstruct_track.execute(resolved_session_uid)
         
         # Step 2: Fetch driver's lap
         if lap_number is None:
             # Get latest lap from session
-            lap_trace = await self._telemetry_repository.get_latest_lap_trace(session_uid)
+            lap_trace = await self._telemetry_repository.get_latest_lap_trace(resolved_session_uid)
             if lap_trace is None:
-                raise LapNotFoundError(f"No lap found for session {session_uid}")
+                raise LapNotFoundError(f"No lap found for session {resolved_session_uid}")
         else:
             # Get specific lap by number
             all_laps = await self._telemetry_repository.list_lap_traces(
-                session_uid=session_uid,
+                session_uid=resolved_session_uid,
                 limit=1000  # Fetch all to find specific lap_number
             )
             
@@ -168,7 +179,7 @@ class MatheCoachAnalysisUseCase:
             matching_laps = [lap for lap in all_laps if lap.lap_number == lap_number]
             if not matching_laps:
                 raise LapNotFoundError(
-                    f"Lap number {lap_number} not found in session {session_uid}"
+                    f"Lap number {lap_number} not found in session {resolved_session_uid}"
                 )
             lap_trace = matching_laps[0]
         
@@ -197,6 +208,62 @@ class MatheCoachAnalysisUseCase:
         )
         
         return feedback
+    
+    async def _resolve_session_uid(
+        self,
+        session_uid: Optional[int],
+        user_id: Optional[str],
+        track_id: Optional[str]
+    ) -> int:
+        """Resolve session UID from parameters using fallback logic.
+        
+        Priority:
+        1. session_uid if provided directly
+        2. user_id + track_id → latest user session on track
+        3. user_id only → latest user session (any track)
+        
+        Args:
+            session_uid: Optional direct session UID.
+            user_id: Optional Discord user ID.
+            track_id: Optional track filter.
+            
+        Returns:
+            Resolved session_uid.
+            
+        Raises:
+            ValueError: If no session resolution parameters provided.
+            LapNotFoundError: If user has no sessions (matching criteria).
+        """
+        # Priority 1: Direct session_uid
+        if session_uid is not None:
+            return session_uid
+        
+        # Priority 2: user_id + track_id
+        if user_id and track_id:
+            resolved = await self._telemetry_repository.get_latest_session_for_user_and_track(
+                user_id, track_id
+            )
+            if resolved is None:
+                raise LapNotFoundError(
+                    f"No telemetry sessions found for user {user_id} on track {track_id}. "
+                    "Make sure you've recorded telemetry data from F1 25 Time Trial mode."
+                )
+            return resolved
+        
+        # Priority 3: user_id only
+        if user_id:
+            resolved = await self._telemetry_repository.get_latest_session_for_user(user_id)
+            if resolved is None:
+                raise LapNotFoundError(
+                    f"No telemetry sessions found for user {user_id}. "
+                    "Record telemetry data from F1 25 Time Trial mode first."
+                )
+            return resolved
+        
+        # No parameters provided
+        raise ValueError(
+            "Cannot resolve session: provide either session_uid, user_id, or user_id+track_id"
+        )
     
     def _get_track_segments(self, track_id: str) -> list[dict]:
         """Get segment definitions for track.

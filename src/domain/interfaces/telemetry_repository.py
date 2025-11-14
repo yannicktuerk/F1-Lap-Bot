@@ -233,6 +233,7 @@ class ITelemetryRepository(ABC):
         session_uid: int,
         track_id: str,
         session_type: int,
+        user_id: Optional[str] = None,
         started_at: Optional[datetime] = None
     ) -> None:
         """Initialize or update session metadata.
@@ -244,6 +245,7 @@ class ITelemetryRepository(ABC):
             session_uid: F1 25 session unique identifier.
             track_id: F1 25 track identifier.
             session_type: F1 25 session type (e.g., Time Trial = 18).
+            user_id: Optional Discord user ID (for automatic session lookup).
             started_at: Optional session start timestamp (auto-set if None).
         """
         pass
@@ -281,6 +283,40 @@ class ITelemetryRepository(ABC):
         Returns:
             List of session metadata dictionaries ordered by started_at desc.
             Empty list if no sessions found.
+        """
+        pass
+    
+    @abstractmethod
+    async def get_latest_session_for_user(
+        self,
+        user_id: str
+    ) -> Optional[int]:
+        """Get the most recent session UID for a user.
+        
+        Args:
+            user_id: Discord user ID.
+            
+        Returns:
+            session_uid of the most recent session for this user,
+            or None if user has no sessions.
+        """
+        pass
+    
+    @abstractmethod
+    async def get_latest_session_for_user_and_track(
+        self,
+        user_id: str,
+        track_id: str
+    ) -> Optional[int]:
+        """Get the most recent session UID for a user on a specific track.
+        
+        Args:
+            user_id: Discord user ID.
+            track_id: F1 25 track identifier.
+            
+        Returns:
+            session_uid of the most recent session for this user on this track,
+            or None if user has no sessions on this track.
         """
         pass
     

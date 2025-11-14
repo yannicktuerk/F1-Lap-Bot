@@ -525,6 +525,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
         session_uid: int,
         track_id: str,
         session_type: int,
+        user_id: Optional[str] = None,
         started_at: Optional[datetime] = None
     ) -> None:
         """Initialize or update session metadata.
@@ -533,6 +534,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
             session_uid: F1 25 session unique identifier.
             track_id: F1 25 track identifier.
             session_type: F1 25 session type.
+            user_id: Optional Discord user ID.
             started_at: Optional session start timestamp.
         """
         async with aiosqlite.connect(self._database_path) as db:
@@ -542,9 +544,9 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
             
             await db.execute("""
                 INSERT OR REPLACE INTO sessions (
-                    session_uid, track_id, session_type, created_at
-                ) VALUES (?, ?, ?, ?)
-            """, (session_uid, track_id, session_type, created_at))
+                    session_uid, track_id, session_type, user_id, created_at
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (session_uid, track_id, session_type, user_id, created_at))
             
             await db.commit()
     
@@ -634,6 +636,66 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
                 })
             
             return sessions
+    
+    async def get_latest_session_for_user(
+        self,
+        user_id: str
+    ) -> Optional[int]:
+        """Get the most recent session UID for a user.
+        
+        Args:
+            user_id: Discord user ID.
+            
+        Returns:
+            session_uid of the most recent session or None.
+        """
+        async with aiosqlite.connect(self._database_path) as db:
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            
+            cursor = await db.execute("""
+                SELECT session_uid FROM sessions
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (user_id,))
+            row = await cursor.fetchone()
+            
+            if row is None:
+                return None
+            
+            return row["session_uid"]
+    
+    async def get_latest_session_for_user_and_track(
+        self,
+        user_id: str,
+        track_id: str
+    ) -> Optional[int]:
+        """Get the most recent session UID for a user on a specific track.
+        
+        Args:
+            user_id: Discord user ID.
+            track_id: F1 25 track identifier.
+            
+        Returns:
+            session_uid of the most recent session on this track or None.
+        """
+        async with aiosqlite.connect(self._database_path) as db:
+            await db.execute("PRAGMA foreign_keys = ON")
+            db.row_factory = aiosqlite.Row
+            
+            cursor = await db.execute("""
+                SELECT session_uid FROM sessions
+                WHERE user_id = ? AND track_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (user_id, track_id))
+            row = await cursor.fetchone()
+            
+            if row is None:
+                return None
+            
+            return row["session_uid"]
     
     # =========================================================================
     # Bulk Operations & Maintenance

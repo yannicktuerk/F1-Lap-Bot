@@ -364,6 +364,8 @@ class TestIndexes:
             "idx_lap_meta_valid",
             "idx_sessions_created",
             "idx_sessions_track",
+            "idx_sessions_user",
+            "idx_sessions_user_track",
             "idx_setups_session",
             "idx_telemetry_lap_distance",
             "idx_telemetry_trace"
@@ -427,7 +429,7 @@ class TestMigrationRunner:
         version2 = status2["current_version"]
         
         assert version1 == version2, "Migration version changed on second run"
-        assert version1 == 1, "Expected schema version 1"
+        assert version1 == 2, "Expected schema version 2 (with user_id migration)"
     
     @pytest.mark.asyncio
     async def test_migration_status_reporting(self, migrated_database):
@@ -439,7 +441,8 @@ class TestMigrationRunner:
         assert "applied_migrations" in status
         assert "pending_migrations" in status
         
-        assert status["current_version"] == 1
-        assert len(status["applied_migrations"]) == 1
+        assert status["current_version"] == 2
+        assert len(status["applied_migrations"]) == 2
         assert status["applied_migrations"][0]["version"] == 1
+        assert status["applied_migrations"][1]["version"] == 2
         assert len(status["pending_migrations"]) == 0

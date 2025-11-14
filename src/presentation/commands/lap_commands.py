@@ -1965,20 +1965,20 @@ class LapCommands(commands.Cog):
     
     @app_commands.command(name="coach", description="🏎️ Get physics-based coaching feedback for your lap")
     @app_commands.describe(
-        session_uid="Session ID (required - get from telemetry system)",
+        track_or_session="Track name (e.g., 'monaco') or session ID (optional - defaults to YOUR latest session)",
         lap_number="Specific lap number to analyze (optional, defaults to latest lap)"
     )
     async def lap_coach(
         self,
         interaction: discord.Interaction,
-        session_uid: int,
+        track_or_session: Optional[str] = None,
         lap_number: Optional[int] = None
     ):
         """Get physics-based coaching feedback from Mathe-Coach."""
         await interaction.response.defer()
         
         try:
-            # Check if bot has mathe_coach_use_case (dependency injection)
+            # Check if bot has mathe_coach_use_case
             if not hasattr(self.bot, 'mathe_coach_use_case'):
                 error_embed = discord.Embed(
                     title="❌ Feature Not Available",
@@ -1989,9 +1989,24 @@ class LapCommands(commands.Cog):
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
                 return
             
-            # Execute analysis use case
+            # Parse track_or_session parameter
+            session_uid = None
+            track_id = None
+            user_id = str(interaction.user.id)
+            
+            if track_or_session:
+                # Try to parse as integer (session_uid)
+                try:
+                    session_uid = int(track_or_session)
+                except ValueError:
+                    # Not an integer, treat as track name
+                    track_id = track_or_session.lower()
+            
+            # Execute analysis use case with flexible session lookup
             feedback_markdown = await self.bot.mathe_coach_use_case.execute(
                 session_uid=session_uid,
+                user_id=user_id,
+                track_id=track_id,
                 lap_number=lap_number
             )
             
@@ -2003,9 +2018,13 @@ class LapCommands(commands.Cog):
             )
             
             # Add metadata footer
-            lap_info = f"Lap {lap_number}" if lap_number else "Latest lap"
+            if track_or_session:
+                context = f"{track_id.title() if track_id else f'Session {session_uid}'}"
+            else:
+                context = "Latest session"
+            lap_info = f" • Lap {lap_number}" if lap_number else ""
             embed.set_footer(
-                text=f"Session {session_uid} • {lap_info} • Based on physics model (Mathe-Coach)"
+                text=f"{context}{lap_info} • Based on physics model (Mathe-Coach)"
             )
             
             await interaction.followup.send(embed=embed)
@@ -2021,18 +2040,17 @@ class LapCommands(commands.Cog):
             if isinstance(e, SessionNotFoundError):
                 error_embed = discord.Embed(
                     title="❌ Session Not Found",
-                    description=f"No telemetry session found with ID `{session_uid}`.\n\n"
-                               "Make sure you've recorded telemetry data from F1 25 for this session.",
+                    description=f"{str(e)}\n\n"
+                               "Make sure you've recorded telemetry data from F1 25 Time Trial mode.",
                     color=discord.Color.red()
                 )
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
             
             elif isinstance(e, LapNotFoundError):
-                lap_info = f"lap number {lap_number}" if lap_number else "laps"
                 error_embed = discord.Embed(
                     title="❌ No Telemetry Found",
-                    description=f"No telemetry found for {lap_info} in session `{session_uid}`.\n\n"
-                               "Ensure you've completed at least one lap with telemetry recording enabled.",
+                    description=f"{str(e)}\n\n"
+                               "Complete at least 3 laps in F1 25 Time Trial mode with telemetry recording enabled.",
                     color=discord.Color.red()
                 )
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
@@ -2056,10 +2074,11 @@ class LapCommands(commands.Cog):
                     color=discord.Color.red()
                 )
                 error_embed.add_field(
-                    name="🔧 Troubleshooting",
-                    value="• Ensure telemetry recording is enabled in F1 25\n"
-                          "• Verify you've completed at least 3 laps in the session\n"
-                          "• Check that the session ID is correct",
+                    name="🔧 Usage Examples",
+                    value="• `/lap coach` - Analyze YOUR latest session\n"
+                          "• `/lap coach monaco` - Analyze YOUR latest Monaco session\n"
+                          "• `/lap coach 12345` - Analyze specific session ID\n"
+                          "• Ensure telemetry recording is enabled in F1 25",
                     inline=False
                 )
                 await interaction.followup.send(embed=error_embed, ephemeral=True)
