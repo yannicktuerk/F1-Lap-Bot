@@ -2,6 +2,7 @@
 
 from .ideal_lap_constructor import IdealLapConstructor
 from .lap_comparator import LapComparator, ComparisonSegment, ErrorType
+from .mathe_coach_feedback import MatheCoachFeedbackGenerator
 from .time_trial_elo_service import TimeTrialEloService
 from .track_reconstructor import TrackReconstructor
 
@@ -10,6 +11,7 @@ __all__ = [
     "ErrorType",
     "IdealLapConstructor",
     "LapComparator",
+    "MatheCoachFeedbackGenerator",
     "TimeTrialEloService",
     "TrackReconstructor",
 ]
