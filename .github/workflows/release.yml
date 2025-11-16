@@ -82,8 +82,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            VERSION
-            requirements.txt
             F1-UDP-Listener-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
