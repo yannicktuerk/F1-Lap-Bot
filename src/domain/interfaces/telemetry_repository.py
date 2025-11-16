@@ -66,7 +66,7 @@ class ITelemetryRepository(ABC):
         pass
     
     @abstractmethod
-    async def get_latest_lap_trace(self, session_uid: int) -> Optional[LapTrace]:
+    async def get_latest_lap_trace(self, session_uid: str) -> Optional[LapTrace]:
         """Get most recent lap trace for a session.
         
         Returns the lap with the highest lap_number in the specified session.
@@ -83,7 +83,7 @@ class ITelemetryRepository(ABC):
     @abstractmethod
     async def list_lap_traces(
         self,
-        session_uid: int,
+        session_uid: str,
         limit: int = 50,
         offset: int = 0
     ) -> List[LapTrace]:
@@ -130,7 +130,7 @@ class ITelemetryRepository(ABC):
     async def get_fastest_lap_trace(
         self,
         track_id: Optional[str] = None,
-        session_uid: Optional[int] = None
+        session_uid: Optional[str] = None
     ) -> Optional[LapTrace]:
         """Get fastest valid lap trace, optionally filtered by track or session.
         
@@ -206,7 +206,7 @@ class ITelemetryRepository(ABC):
     @abstractmethod
     async def list_setup_snapshots(
         self,
-        session_uid: int,
+        session_uid: str,
         limit: int = 50
     ) -> List[CarSetupSnapshot]:
         """List all setup snapshots captured in a session.
@@ -230,7 +230,7 @@ class ITelemetryRepository(ABC):
     @abstractmethod
     async def save_session(
         self,
-        session_uid: int,
+        session_uid: str,
         track_id: str,
         session_type: int,
         user_id: Optional[str] = None,
@@ -251,7 +251,7 @@ class ITelemetryRepository(ABC):
         pass
     
     @abstractmethod
-    async def get_session(self, session_uid: int) -> Optional[Dict[str, Any]]:
+    async def get_session(self, session_uid: str) -> Optional[Dict[str, Any]]:
         """Retrieve session metadata.
         
         Args:
@@ -259,7 +259,7 @@ class ITelemetryRepository(ABC):
             
         Returns:
             Dictionary with session metadata:
-            - session_uid: int
+            - session_uid: str
             - track_id: str
             - session_type: int
             - started_at: datetime
@@ -290,7 +290,7 @@ class ITelemetryRepository(ABC):
     async def get_latest_session_for_user(
         self,
         user_id: str
-    ) -> Optional[int]:
+    ) -> Optional[str]:
         """Get the most recent session UID for a user.
         
         Args:
@@ -307,7 +307,7 @@ class ITelemetryRepository(ABC):
         self,
         user_id: str,
         track_id: str
-    ) -> Optional[int]:
+    ) -> Optional[str]:
         """Get the most recent session UID for a user on a specific track.
         
         Args:

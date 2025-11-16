@@ -69,7 +69,7 @@ class ReconstructTrackUseCase:
     
     async def execute(
         self,
-        session_uid: int,
+        session_uid: str,
         min_laps: int = 3
     ) -> TrackProfile:
         """Reconstruct track geometry from session telemetry data.

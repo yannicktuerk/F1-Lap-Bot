@@ -23,7 +23,7 @@ class SessionNotFoundError(Exception):
         SessionNotFoundError: Session with UID 12345 not found
     """
     
-    def __init__(self, session_uid: int, message: str = None):
+    def __init__(self, session_uid: str, message: str = None):
         self.session_uid = session_uid
         if message is None:
             message = f"Session with UID {session_uid} not found"

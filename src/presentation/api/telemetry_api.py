@@ -242,7 +242,7 @@ class TelemetryAPI:
             
             # Register session
             await self.telemetry_repository.save_session(
-                session_uid=int(session_uid),
+                session_uid=str(session_uid),
                 track_id=track_id,
                 session_type=int(session_type),
                 user_id=user_id
@@ -300,7 +300,7 @@ class TelemetryAPI:
             
             # Create LapTrace entity
             lap_trace = LapTrace(
-                session_uid=int(session_uid),
+                session_uid=str(session_uid),
                 lap_number=int(lap_number),
                 car_index=int(car_index),
                 is_valid=bool(is_valid),
