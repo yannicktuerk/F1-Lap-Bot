@@ -49,6 +49,13 @@ jobs:
             echo "No tests directory found, skipping tests"
           fi
       
+      - name: Package UDP Listener
+        run: |
+          cd udp-listener-package
+          zip -r ../F1-UDP-Listener-${{ steps.version.outputs.version }}.zip *.py *.md *.txt *.json *.bat -x config.json
+          cd ..
+          ls -lh F1-UDP-Listener-*.zip
+      
       - name: Generate changelog
         id: changelog
         run: |
@@ -77,6 +84,7 @@ jobs:
           files: |
             VERSION
             requirements.txt
+            F1-UDP-Listener-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       

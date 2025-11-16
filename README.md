@@ -58,8 +58,9 @@ python src/main.py
    - IP: `127.0.0.1`
 
 ### UDP Listener Setup
-1. **Download**: [📦 UDP Listener Package v3.0 (ZIP)](https://github.com/yannicktuerk/F1-Lap-Bot/archive/refs/heads/main.zip)
-2. Extract the ZIP and navigate to `udp-listener-package/` folder
+1. **Download**: [📦 F1 UDP Listener (Latest Release)](https://github.com/yannicktuerk/F1-Lap-Bot/releases/latest)
+   - Look for `F1-UDP-Listener-vX.X.X.zip` in the Assets section
+2. Extract the ZIP
 3. Copy `config_example.json` to `config.json`
 4. Edit `config.json`:
 ```json
