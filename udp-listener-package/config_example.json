@@ -1,0 +1,6 @@
+{
+    "discord_user_id": "YOUR_DISCORD_USER_ID",
+    "bot_api_url": "http://localhost:8080",
+    "port": 20777,
+    "bot_integration": true
+}

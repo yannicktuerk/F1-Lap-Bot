@@ -58,17 +58,20 @@ python src/main.py
    - IP: `127.0.0.1`
 
 ### UDP Listener Setup
-1. Download [UDP Listener](https://github.com/yannicktuerk/F1-Lap-Bot/raw/main/f1-udp-listener-v1.2.zip)
-2. Extract and edit `config.json`:
+1. **Download**: [📦 UDP Listener Package v3.0 (ZIP)](https://github.com/yannicktuerk/F1-Lap-Bot/archive/refs/heads/main.zip)
+2. Extract the ZIP and navigate to `udp-listener-package/` folder
+3. Copy `config_example.json` to `config.json`
+4. Edit `config.json`:
 ```json
 {
     "discord_user_id": "YOUR_DISCORD_USER_ID",
-    "bot_api_url": "ASK_BOT_ADMIN_FOR_URL",
+    "bot_api_url": "http://localhost:8080",
     "port": 20777,
     "bot_integration": true
 }
 ```
-3. Run `python udp_listener.py`
+5. Install dependencies: `pip install -r requirements.txt`
+6. Run: `python telemetry_listener_v3.py`
 
 **Supported:** Time Trial mode only  
 **Validation:** No corner cuts, flashbacks, or penalties

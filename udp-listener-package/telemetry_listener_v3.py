@@ -498,17 +498,16 @@ class F1TelemetryListenerV3:
         track_name = self.session_info.track_name
         lap_time_ms = lap_trace.lap_time_ms
         
-        # Check if personal best
+        # Track local PB for info (server decides official PB)
         current_pb = self.personal_bests.get(track_name)
-        is_pb = current_pb is None or lap_time_ms < current_pb
+        is_local_pb = current_pb is None or lap_time_ms < current_pb
         
-        if not is_pb:
-            print(f"⏱️ Not a personal best (PB: {self._format_time(current_pb)})")
-            print("❌ Lap not submitted to leaderboard (only PBs are submitted)")
-            return
-        
-        print(f"🆕 Personal Best! Submitting to bot...")
-        self.personal_bests[track_name] = lap_time_ms
+        if is_local_pb:
+            print(f"🆕 Local Personal Best! Submitting to bot...")
+            self.personal_bests[track_name] = lap_time_ms
+        else:
+            print(f"⏱️ Valid lap time: {self._format_time(lap_time_ms)} (Local PB: {self._format_time(current_pb)})")
+            print("📤 Submitting lap to server...")
         
         try:
             # Submit lap time (leaderboard)
