@@ -42,6 +42,8 @@ class TelemetryAPI:
     def _setup_routes(self):
         """Setup API routes."""
         self.app.router.add_post('/api/telemetry/submit', self.submit_telemetry)
+        self.app.router.add_post('/api/telemetry/session/register', self.register_session)
+        self.app.router.add_post('/api/telemetry/trace', self.submit_trace)
         self.app.router.add_get('/api/health', self.health_check)
         self.app.router.add_get('/api/status', self.status_check)
         
@@ -213,6 +215,153 @@ class TelemetryAPI:
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }, status=503)
+    
+    async def register_session(self, request: Request) -> Response:
+        """Register new telemetry session with user_id."""
+        try:
+            data = await request.json()
+            
+            # Extract required fields
+            session_uid = data.get('session_uid')
+            track_id = data.get('track_id')
+            session_type = data.get('session_type')
+            user_id = data.get('user_id')
+            
+            if not all([session_uid, track_id, session_type, user_id]):
+                return web.json_response(
+                    {'error': 'Missing required fields: session_uid, track_id, session_type, user_id'},
+                    status=400
+                )
+            
+            # Get telemetry repository (need to inject it)
+            if not hasattr(self, 'telemetry_repository'):
+                return web.json_response(
+                    {'error': 'Telemetry repository not configured'},
+                    status=503
+                )
+            
+            # Register session
+            await self.telemetry_repository.save_session(
+                session_uid=int(session_uid),
+                track_id=track_id,
+                session_type=int(session_type),
+                user_id=user_id
+            )
+            
+            print(f"✅ Session registered: UID={session_uid}, Track={track_id}, User={user_id}")
+            
+            return web.json_response({
+                'status': 'success',
+                'message': 'Session registered successfully',
+                'session_uid': session_uid,
+                'track_id': track_id,
+                'user_id': user_id
+            }, status=200)
+        
+        except Exception as e:
+            self.logger.error(f"Error registering session: {e}")
+            return web.json_response(
+                {'error': f'Failed to register session: {str(e)}'},
+                status=500
+            )
+    
+    async def submit_trace(self, request: Request) -> Response:
+        """Submit complete telemetry trace for a lap."""
+        try:
+            data = await request.json()
+            
+            # Extract required fields
+            session_uid = data.get('session_uid')
+            track_id = data.get('track_id')
+            lap_number = data.get('lap_number')
+            car_index = data.get('car_index')
+            lap_time_ms = data.get('lap_time_ms')
+            is_valid = data.get('is_valid', True)
+            user_id = data.get('user_id')
+            samples = data.get('telemetry_samples', [])
+            sector_times = data.get('sector_times', {})
+            
+            if not all([session_uid, track_id, lap_number is not None, car_index is not None, lap_time_ms, user_id]):
+                return web.json_response(
+                    {'error': 'Missing required fields'},
+                    status=400
+                )
+            
+            # Get telemetry repository
+            if not hasattr(self, 'telemetry_repository'):
+                return web.json_response(
+                    {'error': 'Telemetry repository not configured'},
+                    status=503
+                )
+            
+            # Import domain entities
+            from src.domain.entities.lap_trace import LapTrace
+            from src.domain.value_objects.telemetry_sample import TelemetrySample
+            
+            # Create LapTrace entity
+            lap_trace = LapTrace(
+                session_uid=int(session_uid),
+                lap_number=int(lap_number),
+                car_index=int(car_index),
+                is_valid=bool(is_valid),
+                track_id=track_id,
+                lap_time_ms=int(lap_time_ms)
+            )
+            
+            # Add telemetry samples
+            for sample_data in samples:
+                try:
+                    sample = TelemetrySample(
+                        timestamp_ms=int(sample_data['timestamp_ms']),
+                        world_position_x=float(sample_data['world_position_x']),
+                        world_position_y=float(sample_data['world_position_y']),
+                        world_position_z=float(sample_data['world_position_z']),
+                        world_velocity_x=float(sample_data['world_velocity_x']),
+                        world_velocity_y=float(sample_data['world_velocity_y']),
+                        world_velocity_z=float(sample_data['world_velocity_z']),
+                        g_force_lateral=float(sample_data['g_force_lateral']),
+                        g_force_longitudinal=float(sample_data['g_force_longitudinal']),
+                        yaw=float(sample_data['yaw']),
+                        speed=float(sample_data['speed']),
+                        throttle=float(sample_data['throttle']),
+                        steer=float(sample_data['steer']),
+                        brake=float(sample_data['brake']),
+                        gear=int(sample_data['gear']),
+                        engine_rpm=int(sample_data['engine_rpm']),
+                        drs=int(sample_data['drs']),
+                        lap_distance=float(sample_data['lap_distance']),
+                        lap_number=int(sample_data['lap_number'])
+                    )
+                    lap_trace.add_sample(sample)
+                except (KeyError, ValueError) as e:
+                    self.logger.warning(f"Skipping invalid sample: {e}")
+                    continue
+            
+            # Mark lap as complete
+            lap_trace.mark_complete(int(lap_time_ms))
+            
+            # Save to telemetry database
+            await self.telemetry_repository.save_lap_trace(lap_trace)
+            
+            print(f"✅ Telemetry trace saved: Session={session_uid}, Lap={lap_number}, Samples={len(samples)}")
+            
+            return web.json_response({
+                'status': 'success',
+                'message': 'Telemetry trace submitted successfully',
+                'trace_id': lap_trace.trace_id,
+                'session_uid': session_uid,
+                'lap_number': lap_number,
+                'samples_count': len(samples)
+            }, status=200)
+        
+        except Exception as e:
+            self.logger.error(f"Error submitting telemetry trace: {e}")
+            import traceback
+            traceback.print_exc()
+            return web.json_response(
+                {'error': f'Failed to submit trace: {str(e)}'},
+                status=500
+            )
     
     async def _get_discord_username(self, user_id: str) -> str:
         """Get Discord username from user ID, with fallback to anonymous name."""

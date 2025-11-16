@@ -129,7 +129,9 @@ consolidate_*.py
 temp_*.sql
 *.zip
 
-# Old UDP listener files
-udp_listener.py
+# Old UDP listener files (v2.0)
 f1-udp-listener-package/
-udp-listener-package/
+# Note: udp-listener-package/ now tracked for v3.0 listener
+# Only ignore config.json and logs in that directory
+udp-listener-package/config.json
+udp-listener-package/*.log

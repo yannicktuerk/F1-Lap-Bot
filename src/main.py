@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.presentation.bot.f1_bot import F1LapBot
 from src.presentation.api.telemetry_api import TelemetryAPI
 from src.infrastructure.persistence.sqlite_lap_time_repository import SQLiteLapTimeRepository
+from src.infrastructure.persistence.sqlite_telemetry_repository import SQLiteTelemetryRepository
+from src.infrastructure.migrations.migration_runner import run_telemetry_migrations
 from src.version import get_version, get_version_info
 
 
@@ -87,6 +89,7 @@ async def main():
     
     # Create shared repository instances
     lap_time_repository = SQLiteLapTimeRepository()
+    telemetry_repository = SQLiteTelemetryRepository()  # For Mathe-Coach telemetry traces
     
     # Create Discord bot
     bot = F1LapBot()
@@ -100,6 +103,9 @@ async def main():
         discord_bot=bot
     )
     
+    # Inject telemetry repository for trace storage
+    api_server.telemetry_repository = telemetry_repository
+    
     try:
         # Display version information
         version_info = get_version_info()
@@ -109,6 +115,11 @@ async def main():
             print("   Running in development mode")
         print()
         print("🚀 Starting F1 Lap Time Bot with Telemetry API...")
+        
+        # Run telemetry database migrations
+        print("📊 Running telemetry database migrations...")
+        await run_telemetry_migrations()
+        print("✅ Telemetry database ready")
         
         # Start HTTP API server first
         await api_server.start()

@@ -1,0 +1,5 @@
+# F1 Lap Bot - UDP Listener Requirements
+# Only needed for telemetry listener, not for the full bot
+
+requests==2.31.0
+f1-packets==2025.1.1
