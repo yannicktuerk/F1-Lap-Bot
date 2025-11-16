@@ -406,8 +406,10 @@ class F1TelemetryListenerV3:
                     # Complete the lap
                     self.current_lap_trace.complete(lap_time_ms, sector1_ms, sector2_ms, sector3_ms)
                     
-                    # Check if lap is valid
-                    if not self.current_lap_ever_invalid and penalties == 0:
+                    # In Time Trial, trust the game's judgment
+                    # If we got a lap time, the lap is valid unless there are penalties
+                    # Note: In Time Trial mode, penalties are extremely rare
+                    if penalties == 0:
                         print(f"\n✅ LAP {self.current_lap_number} COMPLETED")
                         print(f"   Time: {self._format_time(lap_time_ms)}")
                         print(f"   Samples: {len(self.current_lap_trace.samples)}")
@@ -418,12 +420,11 @@ class F1TelemetryListenerV3:
                         # Submit to bot
                         self._submit_lap(self.current_lap_trace)
                     else:
-                        print(f"\n❌ LAP {self.current_lap_number} INVALID (penalties or flags)")
+                        print(f"\n❌ LAP {self.current_lap_number} INVALID (penalties={penalties})")
             
             # Start new lap
             print(f"\n🏁 Starting Lap {current_lap_num}")
             self.current_lap_number = current_lap_num
-            self.current_lap_ever_invalid = False
             self.current_lap_trace = LapTraceBuilder(
                 session_uid=self.session_info.session_uid,
                 lap_number=current_lap_num,
@@ -431,11 +432,9 @@ class F1TelemetryListenerV3:
                 track_id=self.session_info.track_name
             )
         
-        # Track invalid status
-        if current_lap_invalid or penalties > 0:
-            self.current_lap_ever_invalid = True
-            if self.current_lap_trace:
-                self.current_lap_trace.mark_invalid()
+        # In Time Trial, we don't track invalid status during the lap
+        # We only check for penalties at completion
+        # Removed: invalid tracking during lap causes false positives
         
         # Create telemetry sample if all data is available
         if (self.current_lap_trace and self.latest_motion_data and 
