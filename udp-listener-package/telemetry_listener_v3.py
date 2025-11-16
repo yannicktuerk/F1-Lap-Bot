@@ -387,12 +387,11 @@ class F1TelemetryListenerV3:
         # Store latest lap data
         self.latest_lap_data = lap_data
         
-        # Establish baseline (skip laps driven before listener started)
-        if not self.baseline_lap_established and lap_time_ms > 0:
-            print(f"🔄 Baseline established: Lap {current_lap_num} (existing lap ignored)")
+        # Establish baseline on first lap data (start tracking immediately)
+        if not self.baseline_lap_established:
+            print(f"🔄 Baseline established: Starting from Lap {current_lap_num}")
             self.baseline_lap_established = True
-            self.current_lap_number = current_lap_num
-            return
+            self.current_lap_number = current_lap_num - 1  # Set to previous lap so next lap triggers new lap logic
         
         # Track lap number changes (new lap started)
         if current_lap_num != self.current_lap_number:
