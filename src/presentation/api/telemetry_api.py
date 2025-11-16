@@ -28,7 +28,8 @@ class TelemetryAPI:
         self.submit_use_case = SubmitLapTimeUseCase(lap_time_repository, driver_rating_repository)
         self.update_elo_use_case = UpdateEloRatingsUseCase(driver_rating_repository, lap_time_repository)
         self.discord_bot = discord_bot  # Reference to Discord bot for user lookup
-        self.app = web.Application()
+        # Increase max request size to 10MB for telemetry traces (300-500 samples per lap)
+        self.app = web.Application(client_max_size=10*1024*1024)
         self.runner: Optional[web.AppRunner] = None
         self.site: Optional[web.TCPSite] = None
         
