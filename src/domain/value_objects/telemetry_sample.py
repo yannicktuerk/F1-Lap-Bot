@@ -169,9 +169,12 @@ class TelemetrySample:
             )
         
         # Lap distance validation
-        if self.lap_distance < 0:
+        # Note: lap_distance can be slightly negative near start/finish line
+        # F1 game reports negative values briefly when crossing the line
+        # Only reject extreme negative values that indicate data corruption
+        if self.lap_distance < -100.0:
             raise ValueError(
-                f"lap_distance must be non-negative (meters), got {self.lap_distance}"
+                f"lap_distance is invalid (meters), got {self.lap_distance}"
             )
         
         # Lap number validation (must be at least 1)
