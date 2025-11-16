@@ -299,17 +299,17 @@ class TelemetryAPI:
             from src.domain.entities.lap_trace import LapTrace
             from src.domain.value_objects.telemetry_sample import TelemetrySample
             
-            # Create LapTrace entity
+            # Create LapTrace entity (without lap_time_ms so it's not marked complete yet)
             lap_trace = LapTrace(
                 session_uid=str(session_uid),
                 lap_number=int(lap_number),
                 car_index=int(car_index),
                 is_valid=bool(is_valid),
                 track_id=track_id,
-                lap_time_ms=int(lap_time_ms)
+                lap_time_ms=None  # Don't set lap_time yet - samples must be added first
             )
             
-            # Add telemetry samples
+            # Add telemetry samples (must be done before marking complete)
             for sample_data in samples:
                 try:
                     sample = TelemetrySample(
@@ -338,7 +338,7 @@ class TelemetryAPI:
                     self.logger.warning(f"Skipping invalid sample: {e}")
                     continue
             
-            # Mark lap as complete
+            # Now mark lap as complete with final time
             lap_trace.mark_complete(int(lap_time_ms))
             
             # Save to telemetry database
