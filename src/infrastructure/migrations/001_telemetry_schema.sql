@@ -26,7 +26,8 @@ PRAGMA foreign_keys = ON;
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS sessions (
     -- Primary key: F1 25 session UID from PacketHeader.m_sessionUID
-    session_uid INTEGER PRIMARY KEY NOT NULL,
+    -- TEXT to avoid SQLite INTEGER overflow (F1 UIDs can exceed signed 64-bit)
+    session_uid TEXT PRIMARY KEY NOT NULL,
     
     -- Track identifier from F1 25 (e.g., "monaco", "silverstone")
     track_id TEXT NOT NULL,
@@ -63,7 +64,7 @@ CREATE TABLE IF NOT EXISTS car_setups (
     setup_id TEXT PRIMARY KEY NOT NULL,
     
     -- Foreign key: session this setup was captured in
-    session_uid INTEGER NOT NULL,
+    session_uid TEXT NOT NULL,
     
     -- Session time when snapshot was captured (milliseconds)
     timestamp_ms INTEGER NOT NULL,
@@ -135,7 +136,7 @@ CREATE TABLE IF NOT EXISTS lap_metadata (
     trace_id TEXT PRIMARY KEY NOT NULL,
     
     -- Foreign key: session this lap belongs to
-    session_uid INTEGER NOT NULL,
+    session_uid TEXT NOT NULL,
     
     -- Foreign key: car setup used for this lap (optional)
     -- NULL if no setup snapshot associated with this lap

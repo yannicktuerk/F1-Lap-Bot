@@ -20,7 +20,7 @@ class LapTrace:
     
     Attributes:
         trace_id (str): Unique identifier for this lap trace (UUID).
-        session_uid (int): Session identifier from F1 25.
+        session_uid (str): Session identifier from F1 25.
         lap_number (int): Lap number within the session.
         track_id (Optional[str]): Track identifier from F1 25.
         car_index (int): Player car index from F1 25.
@@ -38,7 +38,7 @@ class LapTrace:
     
     def __init__(
         self,
-        session_uid: int,
+        session_uid: str,
         lap_number: int,
         car_index: int,
         is_valid: bool = True,
@@ -95,7 +95,7 @@ class LapTrace:
         return self._trace_id
     
     @property
-    def session_uid(self) -> int:
+    def session_uid(self) -> str:
         return self._session_uid
     
     @property

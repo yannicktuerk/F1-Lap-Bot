@@ -192,7 +192,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
             
             return lap_trace
     
-    async def get_latest_lap_trace(self, session_uid: int) -> Optional[LapTrace]:
+    async def get_latest_lap_trace(self, session_uid: str) -> Optional[LapTrace]:
         """Get most recent lap trace for a session.
         
         Args:
@@ -220,7 +220,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
     
     async def list_lap_traces(
         self,
-        session_uid: int,
+        session_uid: str,
         limit: int = 50,
         offset: int = 0
     ) -> List[LapTrace]:
@@ -304,7 +304,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
     async def get_fastest_lap_trace(
         self,
         track_id: Optional[str] = None,
-        session_uid: Optional[int] = None
+        session_uid: Optional[str] = None
     ) -> Optional[LapTrace]:
         """Get fastest valid lap trace, optionally filtered.
         
@@ -490,7 +490,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
     
     async def list_setup_snapshots(
         self,
-        session_uid: int,
+        session_uid: str,
         limit: int = 50
     ) -> List[CarSetupSnapshot]:
         """List all setup snapshots captured in a session.
@@ -522,7 +522,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
     
     async def save_session(
         self,
-        session_uid: int,
+        session_uid: str,
         track_id: str,
         session_type: int,
         user_id: Optional[str] = None,
@@ -550,7 +550,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
             
             await db.commit()
     
-    async def get_session(self, session_uid: int) -> Optional[Dict[str, Any]]:
+    async def get_session(self, session_uid: str) -> Optional[Dict[str, Any]]:
         """Retrieve session metadata.
         
         Args:
@@ -640,7 +640,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
     async def get_latest_session_for_user(
         self,
         user_id: str
-    ) -> Optional[int]:
+    ) -> Optional[str]:
         """Get the most recent session UID for a user.
         
         Args:
@@ -670,7 +670,7 @@ class SQLiteTelemetryRepository(ITelemetryRepository):
         self,
         user_id: str,
         track_id: str
-    ) -> Optional[int]:
+    ) -> Optional[str]:
         """Get the most recent session UID for a user on a specific track.
         
         Args:

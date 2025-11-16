@@ -20,7 +20,7 @@ class CarSetupSnapshot:
     
     Attributes:
         setup_id (str): Unique identifier for this setup snapshot (UUID).
-        session_uid (int): Session identifier from F1 25 (links to session).
+        session_uid (str): Session identifier from F1 25 (links to session).
         timestamp_ms (int): Session time when snapshot was captured (milliseconds).
         
         front_wing (int): Front wing aero angle (F1 25: m_frontWing).
@@ -86,7 +86,7 @@ class CarSetupSnapshot:
     
     def __init__(
         self,
-        session_uid: int,
+        session_uid: str,
         timestamp_ms: int,
         # Aerodynamics
         front_wing: int,
@@ -271,7 +271,7 @@ class CarSetupSnapshot:
         return self._setup_id
     
     @property
-    def session_uid(self) -> int:
+    def session_uid(self) -> str:
         return self._session_uid
     
     @property

@@ -83,7 +83,7 @@ class SessionInfo:
     """Session information from F1 2025."""
     session_type: int
     track_id: int
-    session_uid: int
+    session_uid: str
     is_time_trial: bool = False
     track_name: str = "Unknown"
 
@@ -91,7 +91,7 @@ class SessionInfo:
 class LapTraceBuilder:
     """Builds a complete lap trace by collecting telemetry samples."""
     
-    def __init__(self, session_uid: int, lap_number: int, car_index: int, track_id: str):
+    def __init__(self, session_uid: str, lap_number: int, car_index: int, track_id: str):
         self.session_uid = session_uid
         self.lap_number = lap_number
         self.car_index = car_index
@@ -290,13 +290,16 @@ class F1TelemetryListenerV3:
             track_name = TRACK_MAPPING.get(track_id, f"track_{track_id}")
             is_time_trial = session_type == SESSION_TYPE_TIME_TRIAL
             
+            # Convert session_uid to string to avoid SQLite INTEGER overflow
+            session_uid_str = str(session_uid)
+            
             # Detect new session
             if is_time_trial and (not self.session_info or 
-                                 self.session_info.session_uid != session_uid):
+                                 self.session_info.session_uid != session_uid_str):
                 self.session_info = SessionInfo(
                     session_type=session_type,
                     track_id=track_id,
-                    session_uid=session_uid,
+                    session_uid=session_uid_str,
                     is_time_trial=True,
                     track_name=track_name
                 )
@@ -384,12 +387,11 @@ class F1TelemetryListenerV3:
         # Store latest lap data
         self.latest_lap_data = lap_data
         
-        # Establish baseline (skip laps driven before listener started)
-        if not self.baseline_lap_established and lap_time_ms > 0:
-            print(f"🔄 Baseline established: Lap {current_lap_num} (existing lap ignored)")
+        # Establish baseline on first lap data (start tracking immediately)
+        if not self.baseline_lap_established:
+            print(f"🔄 Baseline established: Starting from Lap {current_lap_num}")
             self.baseline_lap_established = True
-            self.current_lap_number = current_lap_num
-            return
+            self.current_lap_number = current_lap_num - 1  # Set to previous lap so next lap triggers new lap logic
         
         # Track lap number changes (new lap started)
         if current_lap_num != self.current_lap_number:
